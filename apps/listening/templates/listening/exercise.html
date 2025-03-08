@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Listening Exercise - Toki Pona{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Listening Exercise</h1>
+        <p class="lead">Listen to the audio and translate the phrase:</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">Translate this phrase:</h5>
+
+                <!-- Audio player -->
+                <div class="mb-4 text-center">
+                    {% if phrase.audio_file %}
+                        <audio controls class="w-100">
+                            <source src="{{ phrase.audio_file.url }}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            Audio file not available.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Translation form with HTMX -->
+                <form hx-post="{% url 'listening:check_translation' %}"
+                      hx-target="#feedback"
+                      hx-swap="innerHTML">
+                    {% csrf_token %}
+                    <input type="hidden" name="phrase_id" value="{{ phrase.pk }}">
+
+                    <div class="form-group mb-3">
+                        <label for="translation" class="form-label">Your translation:</label>
+                        <input type="text"
+                               class="form-control"
+                               id="translation"
+                               name="translation"
+                               placeholder="Enter your translation here"
+                               required>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Check Translation</button>
+                    </div>
+                </form>
+
+                <!-- Feedback area (populated by HTMX) -->
+                <div id="feedback" class="mt-4"></div>
+
+                <div class="mt-4">
+                    <a href="{% url 'listening:index' %}" class="btn btn-outline-secondary">Back to Phrases</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

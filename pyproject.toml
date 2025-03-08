@@ -1,0 +1,7 @@
+[project]
+name = "toki-pona-ai"
+version = "0.1.0"
+description = "AI-Powered Toki Pona Learning App"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []

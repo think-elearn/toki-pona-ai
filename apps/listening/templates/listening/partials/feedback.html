@@ -1,0 +1,16 @@
+{% if is_correct %}
+    <div class="alert alert-success">
+        {{ feedback }}
+    </div>
+{% else %}
+    <div class="alert alert-danger">
+        {{ feedback }}
+        <hr>
+        <p><strong>Acceptable translations include:</strong></p>
+        <ul>
+            {% for translation in correct_translations %}
+                <li>{{ translation }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}

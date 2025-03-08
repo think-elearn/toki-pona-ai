@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Practice {{ glyph.name }} - Toki Pona{% endblock %}
+
+{% block extra_css %}
+<style>
+    #drawingCanvas {
+        border: 2px solid #000;
+        background-color: #fff;
+        cursor: crosshair;
+    }
+    .reference-glyph {
+        max-height: 150px;
+        margin-bottom: 20px;
+    }
+    .drawing-area {
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Practice Writing: {{ glyph.name }}</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h5>Reference Glyph</h5>
+                    <img src="{{ glyph.image.url }}" alt="{{ glyph.name }}" class="reference-glyph">
+                </div>
+
+                <div class="drawing-area">
+                    <h5>Your Drawing</h5>
+                    <canvas id="drawingCanvas" width="300" height="300" class="mx-auto d-block"></canvas>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button id="checkDrawing" class="btn btn-primary">Check Drawing</button>
+                    <button id="clearCanvas" class="btn btn-secondary">Clear</button>
+                </div>
+
+                <div id="feedback" class="mt-4"></div>
+
+                <div class="mt-4">
+                    <a href="{% url 'writing:index' %}" class="btn btn-outline-secondary">Back to Glyphs</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+
+        // Canvas drawing functionality
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Touch support
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            startDrawing(getTouchPos(canvas, e));
+        });
+        canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            draw(getTouchPos(canvas, e));
+        });
+        canvas.addEventListener('touchend', stopDrawing);
+
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            const pos = e.touches ? { offsetX: e.clientX, offsetY: e.clientY } : e;
+
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000';
+
+            ctx.lineTo(pos.offsetX, pos.offsetY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pos.offsetX, pos.offsetY);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        function getTouchPos(canvasDom, touchEvent) {
+            const rect = canvasDom.getBoundingClientRect();
+            return {
+                offsetX: touchEvent.touches[0].clientX - rect.left,
+                offsetY: touchEvent.touches[0].clientY - rect.top
+            };
+        }
+
+        // Clear canvas
+        document.getElementById('clearCanvas').addEventListener('click', function() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('feedback').innerHTML = '';
+        });
+
+        // Check drawing
+        document.getElementById('checkDrawing').addEventListener('click', function() {
+            const imageData = canvas.toDataURL('image/png');
+
+            fetch('{% url "writing:check_drawing" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    glyph_name: '{{ glyph.name }}',
+                    image_data: imageData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const feedbackDiv = document.getElementById('feedback');
+
+                if (data.is_correct) {
+                    feedbackDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h5>Great job!</h5>
+                            <p>${data.feedback}</p>
+                            <p>Confidence score: ${Math.round(data.confidence * 100)}%</p>
+                        </div>
+                    `;
+                } else {
+                    feedbackDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            <h5>Keep practicing!</h5>
+                            <p>${data.feedback}</p>
+                            <p>Confidence score: ${Math.round(data.confidence * 100)}%</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('feedback').innerHTML = `
+                    <div class="alert alert-danger">
+                        <p>An error occurred while checking your drawing. Please try again.</p>
+                    </div>
+                `;
+            });
+        });
+    });
+</script>
+{% endblock %}

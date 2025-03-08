@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Signing Practice - Toki Pona{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Luka Pona Signing Practice</h1>
+        <p class="lead">Select a sign to practice:</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    {% if signs %}
+        {% for sign in signs %}
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ sign.name }}</h5>
+                        <p class="card-text">Practice the sign for "{{ sign.name }}" in Luka Pona.</p>
+                        <a href="{% url 'signing:practice' sign.pk %}" class="btn btn-primary">Practice This Sign</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No signs are available yet. Please check back later.
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Toki Pona Learning Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Welcome to Toki Pona Learning Platform</h1>
+        <p class="lead">Select a learning module to begin:</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Listening Practice</h5>
+                <p class="card-text">Practice your Toki Pona listening skills with audio exercises.</p>
+                <a href="{% url 'listening:index' %}" class="btn btn-primary">Start Listening</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Writing Practice</h5>
+                <p class="card-text">Learn to write Sitelen Pona glyphs with interactive exercises.</p>
+                <a href="{% url 'writing:index' %}" class="btn btn-primary">Start Writing</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Signing Practice</h5>
+                <p class="card-text">Practice Luka Pona sign language with your webcam.</p>
+                <a href="{% url 'signing:index' %}" class="btn btn-primary">Start Signing</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

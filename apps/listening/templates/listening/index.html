@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Listening Practice - Toki Pona{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Toki Pona Listening Practice</h1>
+        <p class="lead">Select a phrase to practice your listening and translation skills:</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    {% if phrases %}
+        {% for phrase in phrases %}
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Phrase {{ phrase.pk }}</h5>
+                        <p class="card-text">Practice translating this Toki Pona phrase.</p>
+                        <a href="{% url 'listening:exercise' phrase.pk %}" class="btn btn-primary">Practice This Phrase</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No phrases are available yet. Please check back later.
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
