@@ -49,7 +49,7 @@
             </ol>
         </nav>
         <h1 class="mb-4">{{ phrase.title }}</h1>
-        <div class="badge bg-{{ phrase.difficulty|yesno:'success,primary,warning' }} mb-3">
+        <div class="badge bg-{% if phrase.difficulty == 'beginner' %}success{% elif phrase.difficulty == 'intermediate' %}primary{% else %}warning{% endif %} mb-3">
             {{ phrase.get_difficulty_display }}
         </div>
     </div>
