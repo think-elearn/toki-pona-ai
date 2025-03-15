@@ -23,7 +23,10 @@ class Migration(migrations.Migration):
                 ),
                 ("name", models.CharField(max_length=50)),
                 ("meaning", models.CharField(max_length=100)),
-                ("image", models.ImageField(upload_to="glyphs/")),
+                (
+                    "image",
+                    models.ImageField(blank=True, null=True, upload_to="glyphs/"),
+                ),
                 (
                     "reference_image",
                     models.ImageField(

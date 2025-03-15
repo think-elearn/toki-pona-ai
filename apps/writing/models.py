@@ -15,7 +15,7 @@ class Glyph(models.Model):
 
     name = models.CharField(max_length=50)
     meaning = models.CharField(max_length=100)
-    image = models.ImageField(upload_to="glyphs/")
+    image = models.ImageField(upload_to="glyphs/", null=True, blank=True)
     reference_image = models.ImageField(
         upload_to="glyphs/reference/", null=True, blank=True
     )
