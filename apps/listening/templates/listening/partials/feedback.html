@@ -1,16 +1,31 @@
 {% if is_correct %}
-    <div class="alert alert-success">
-        {{ feedback }}
+    <div class="alert alert-success mt-3">
+        <h5><i class="bi bi-check-circle-fill me-2"></i>Correct!</h5>
+        <p>{{ feedback }}</p>
     </div>
 {% else %}
-    <div class="alert alert-danger">
-        {{ feedback }}
-        <hr>
-        <p><strong>Acceptable translations include:</strong></p>
-        <ul>
-            {% for translation in correct_translations %}
-                <li>{{ translation }}</li>
-            {% endfor %}
-        </ul>
+    <div class="alert alert-warning mt-3">
+        <h5><i class="bi bi-exclamation-triangle-fill me-2"></i>Try Again</h5>
+        <p>{{ feedback }}</p>
+
+        {% if correct_translations %}
+            <div class="mt-2">
+                <div class="mb-2">Common translations include:</div>
+                <ul class="mb-0">
+                    {% for translation in correct_translations %}
+                        <li>{{ translation }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
     </div>
 {% endif %}
+
+<div class="mt-3">
+    <button class="btn btn-outline-primary"
+            hx-get="{% url 'listening:exercise' phrase_id %}"
+            hx-target="#feedback"
+            hx-swap="outerHTML">
+        Try Another Translation
+    </button>
+</div>
