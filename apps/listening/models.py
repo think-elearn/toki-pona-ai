@@ -23,3 +23,26 @@ class TokiPonaPhrase(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ListeningExerciseProgress(models.Model):
+    user = models.ForeignKey("auth.User", on_delete=models.CASCADE)
+    phrase = models.ForeignKey(TokiPonaPhrase, on_delete=models.CASCADE)
+    completed = models.BooleanField(default=False)
+    last_attempt = models.DateTimeField(auto_now=True)
+    correct_attempts = models.PositiveIntegerField(default=0)
+    total_attempts = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("user", "phrase")
+        verbose_name_plural = "Listening exercise progress"
+
+    def __str__(self):
+        return f"{self.user.username}'s progress on '{self.phrase.title}'"
+
+    @property
+    def accuracy(self):
+        """Calculate accuracy percentage."""
+        if self.total_attempts == 0:
+            return 0
+        return (self.correct_attempts / self.total_attempts) * 100
