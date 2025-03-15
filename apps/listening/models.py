@@ -1,13 +1,12 @@
 from django.db import models
 
 
-class DifficultyLevel(models.TextChoices):
-    BEGINNER = "beginner", "Beginner"
-    INTERMEDIATE = "intermediate", "Intermediate"
-    ADVANCED = "advanced", "Advanced"
-
-
 class TokiPonaPhrase(models.Model):
+    class DifficultyLevel(models.TextChoices):
+        BEGINNER = "beginner", "Beginner"
+        INTERMEDIATE = "intermediate", "Intermediate"
+        ADVANCED = "advanced", "Advanced"
+
     title = models.CharField(max_length=100, default="Toki Pona Exercise")
     text = models.CharField(max_length=200)
     translations = models.JSONField()
