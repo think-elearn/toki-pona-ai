@@ -1,6 +1,6 @@
 # apps/listening/admin.py
 from django.contrib import admin
-from .models import TokiPonaPhrase
+from .models import ListeningExerciseProgress, TokiPonaPhrase
 
 
 @admin.register(TokiPonaPhrase)
@@ -18,3 +18,19 @@ class TokiPonaPhraseAdmin(admin.ModelAdmin):
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),
     )
+
+
+@admin.register(ListeningExerciseProgress)
+class ListeningExerciseProgressAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "phrase",
+        "completed",
+        "correct_attempts",
+        "total_attempts",
+        "accuracy",
+        "last_attempt",
+    )
+    list_filter = ("completed", "last_attempt")
+    search_fields = ("user__username", "phrase__title")
+    readonly_fields = ("accuracy",)
