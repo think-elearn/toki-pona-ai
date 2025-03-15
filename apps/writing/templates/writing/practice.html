@@ -5,17 +5,46 @@
 
 {% block extra_css %}
 <style>
+    .canvas-container {
+        position: relative;
+        margin: 0 auto;
+    }
     #drawingCanvas {
         border: 2px solid #000;
-        background-color: #fff;
+        border-radius: 5px;
         cursor: crosshair;
+        background-color: #fff;
     }
     .reference-glyph {
         max-height: 150px;
         margin-bottom: 20px;
     }
-    .drawing-area {
-        margin-bottom: 20px;
+    .tools {
+        margin-bottom: 15px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .color-option {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+        cursor: pointer;
+        border: 2px solid #ccc;
+    }
+    .color-option.active {
+        border-color: #333;
+    }
+    .progress-stats {
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        margin-top: 20px;
+    }
+    #checkDrawing:disabled {
+        opacity: 0.7;
     }
 </style>
 {% endblock %}
@@ -23,34 +52,131 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'writing:index' %}">Writing Practice</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ glyph.name }}</li>
+            </ol>
+        </nav>
         <h1 class="mb-4">Practice Writing: {{ glyph.name }}</h1>
+        <div class="badge bg-{% if glyph.difficulty == 'beginner' %}success{% elif glyph.difficulty == 'intermediate' %}primary{% else %}warning{% endif %} mb-3">
+            {{ glyph.get_difficulty_display }}
+        </div>
     </div>
 </div>
 
 <div class="row">
-    <div class="col-lg-6 col-md-8 mx-auto">
-        <div class="card">
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Drawing Area</h2>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="showReferenceToggle" checked>
+                    <label class="form-check-label" for="showReferenceToggle">Show Reference</label>
+                </div>
+            </div>
             <div class="card-body">
-                <div class="text-center mb-4">
-                    <h5>Reference Glyph</h5>
-                    <img src="{{ glyph.image.url }}" alt="{{ glyph.name }}" class="reference-glyph">
+                <div id="referenceContainer" class="text-center mb-4">
+                    {% if glyph.image and glyph.image.name %}
+                        <img src="{{ glyph.image.url }}" alt="{{ glyph.name }}" class="reference-glyph img-fluid">
+                    {% else %}
+                        <div class="placeholder-glyph mx-auto" style="width: 150px; height: 150px;">{{ glyph.name }}</div>
+                    {% endif %}
                 </div>
 
-                <div class="drawing-area">
-                    <h5>Your Drawing</h5>
-                    <canvas id="drawingCanvas" width="300" height="300" class="mx-auto d-block"></canvas>
+                <div class="tools">
+                    <div>
+                        <label for="strokeWidth" class="form-label">Stroke Width:</label>
+                        <input type="range" class="form-range" min="1" max="15" value="5" id="strokeWidth" style="width: 100px;">
+                    </div>
+
+                    <div class="ms-3">
+                        <label class="form-label">Color:</label>
+                        <div class="d-inline-block">
+                            <span class="color-option active" data-color="#000000" style="background-color: #000000;"></span>
+                            <span class="color-option" data-color="#ff0000" style="background-color: #ff0000;"></span>
+                            <span class="color-option" data-color="#0000ff" style="background-color: #0000ff;"></span>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="d-grid gap-2">
+                <div class="canvas-container">
+                    <canvas id="drawingCanvas" width="400" height="400"></canvas>
+                </div>
+
+                <div class="d-grid gap-2 mt-3">
                     <button id="checkDrawing" class="btn btn-primary">Check Drawing</button>
-                    <button id="clearCanvas" class="btn btn-secondary">Clear</button>
+                    <button id="clearCanvas" class="btn btn-secondary">Clear Canvas</button>
                 </div>
 
                 <div id="feedback" class="mt-4"></div>
 
-                <div class="mt-4">
-                    <a href="{% url 'writing:index' %}" class="btn btn-outline-secondary">Back to Glyphs</a>
+                {% if progress %}
+                <div class="progress-stats mt-4">
+                    <h5>Your Progress</h5>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="card text-center h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Attempts</h6>
+                                    <p class="display-6">{{ progress.attempts }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Accuracy</h6>
+                                    <p class="display-6">{{ progress.accuracy }}%</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-center h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Status</h6>
+                                    <p class="display-6">
+                                        {% if progress.mastered %}
+                                        <span class="text-success">✓</span>
+                                        {% else %}
+                                        <span class="text-warning">↻</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h2 class="h5 mb-0">About this Glyph</h2>
+            </div>
+            <div class="card-body">
+                <h3 class="h6">Meaning:</h3>
+                <p>{{ glyph.meaning }}</p>
+
+                {% if glyph.description %}
+                <h3 class="h6">Description:</h3>
+                <p>{{ glyph.description }}</p>
+                {% endif %}
+
+                {% if glyph.example_sentence %}
+                <h3 class="h6">Example:</h3>
+                <p><em>{{ glyph.example_sentence }}</em></p>
+                {% endif %}
+
+                <h3 class="h6">Drawing Tips:</h3>
+                <ul>
+                    <li>Focus on the overall shape first</li>
+                    <li>Draw with confident strokes</li>
+                    <li>Practice the basic elements before attempting the whole glyph</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -59,113 +185,206 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const canvas = document.getElementById('drawingCanvas');
-        const ctx = canvas.getContext('2d');
-        let isDrawing = false;
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
 
-        // Canvas drawing functionality
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseout', stopDrawing);
+    // Get DOM elements
+    const clearButton = document.getElementById('clearCanvas');
+    const checkButton = document.getElementById('checkDrawing');
+    const strokeWidthSlider = document.getElementById('strokeWidth');
+    const colorOptions = document.querySelectorAll('.color-option');
+    const showReferenceToggle = document.getElementById('showReferenceToggle');
+    const referenceContainer = document.getElementById('referenceContainer');
 
-        // Touch support
-        canvas.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            startDrawing(getTouchPos(canvas, e));
+    // Set default drawing settings
+    ctx.strokeStyle = '#000000';
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 5;
+
+    // Check if canvas is empty
+    let isCanvasEmpty = true;
+
+    // Drawing state
+    function updateDrawingState() {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        isCanvasEmpty = !imageData.some(channel => channel !== 0);
+        checkButton.disabled = isCanvasEmpty;
+    }
+
+    // Initialize canvas
+    function initCanvas() {
+        // Set background color
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        updateDrawingState();
+    }
+
+    // Drawing event handlers
+    function startDrawing(e) {
+        isDrawing = true;
+        [lastX, lastY] = [e.offsetX, e.offsetY];
+    }
+
+    function draw(e) {
+        if (!isDrawing) return;
+
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+
+        [lastX, lastY] = [e.offsetX, e.offsetY];
+        isCanvasEmpty = false;
+        checkButton.disabled = false;
+    }
+
+    function stopDrawing() {
+        isDrawing = false;
+    }
+
+    // Event listeners for drawing
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    // Touch support
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousedown', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
         });
-        canvas.addEventListener('touchmove', function(e) {
-            e.preventDefault();
-            draw(getTouchPos(canvas, e));
+        canvas.dispatchEvent(mouseEvent);
+    });
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const mouseEvent = new MouseEvent('mousemove', {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            offsetX: touch.clientX - rect.left,
+            offsetY: touch.clientY - rect.top
         });
-        canvas.addEventListener('touchend', stopDrawing);
+        canvas.dispatchEvent(mouseEvent);
+    });
 
-        function startDrawing(e) {
-            isDrawing = true;
-            draw(e);
-        }
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        const mouseEvent = new MouseEvent('mouseup');
+        canvas.dispatchEvent(mouseEvent);
+    });
 
-        function draw(e) {
-            if (!isDrawing) return;
+    // Clear canvas button
+    clearButton.addEventListener('click', function() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        initCanvas();
+        document.getElementById('feedback').innerHTML = '';
+    });
 
-            const pos = e.touches ? { offsetX: e.clientX, offsetY: e.clientY } : e;
+    // Stroke width slider
+    strokeWidthSlider.addEventListener('input', function() {
+        ctx.lineWidth = this.value;
+    });
 
-            ctx.lineWidth = 5;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = '#000';
+    // Color options
+    colorOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            const color = this.getAttribute('data-color');
+            ctx.strokeStyle = color;
 
-            ctx.lineTo(pos.offsetX, pos.offsetY);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(pos.offsetX, pos.offsetY);
-        }
-
-        function stopDrawing() {
-            isDrawing = false;
-            ctx.beginPath();
-        }
-
-        function getTouchPos(canvasDom, touchEvent) {
-            const rect = canvasDom.getBoundingClientRect();
-            return {
-                offsetX: touchEvent.touches[0].clientX - rect.left,
-                offsetY: touchEvent.touches[0].clientY - rect.top
-            };
-        }
-
-        // Clear canvas
-        document.getElementById('clearCanvas').addEventListener('click', function() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('feedback').innerHTML = '';
-        });
-
-        // Check drawing
-        document.getElementById('checkDrawing').addEventListener('click', function() {
-            const imageData = canvas.toDataURL('image/png');
-
-            fetch('{% url "writing:check_drawing" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify({
-                    glyph_name: '{{ glyph.name }}',
-                    image_data: imageData
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                const feedbackDiv = document.getElementById('feedback');
-
-                if (data.is_correct) {
-                    feedbackDiv.innerHTML = `
-                        <div class="alert alert-success">
-                            <h5>Great job!</h5>
-                            <p>${data.feedback}</p>
-                            <p>Confidence score: ${Math.round(data.confidence * 100)}%</p>
-                        </div>
-                    `;
-                } else {
-                    feedbackDiv.innerHTML = `
-                        <div class="alert alert-warning">
-                            <h5>Keep practicing!</h5>
-                            <p>${data.feedback}</p>
-                            <p>Confidence score: ${Math.round(data.confidence * 100)}%</p>
-                        </div>
-                    `;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('feedback').innerHTML = `
-                    <div class="alert alert-danger">
-                        <p>An error occurred while checking your drawing. Please try again.</p>
-                    </div>
-                `;
-            });
+            // Update active state
+            document.querySelector('.color-option.active').classList.remove('active');
+            this.classList.add('active');
         });
     });
+
+    // Reference toggle
+    showReferenceToggle.addEventListener('change', function() {
+        referenceContainer.style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Check drawing
+    checkButton.addEventListener('click', function() {
+        // Get the canvas data
+        const imageData = canvas.toDataURL('image/png');
+
+        // Send to server for evaluation
+        fetch('{% url "writing:check_drawing" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                glyph_name: '{{ glyph.name }}',
+                image_data: imageData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const feedbackDiv = document.getElementById('feedback');
+
+            if (data.error) {
+                feedbackDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+
+            // Create feedback element
+            let alertClass = data.is_correct ? 'success' : 'warning';
+            let feedbackHTML = `
+                <div class="alert alert-${alertClass}">
+                    <h5>${data.is_correct ? 'Well done!' : 'Almost there!'}</h5>
+                    <p>${data.feedback}</p>
+                    <div class="mt-2">
+                        <div class="progress">
+                            <div class="progress-bar bg-${alertClass}"
+                                 role="progressbar"
+                                 style="width: ${data.similarity}%"
+                                 aria-valuenow="${data.similarity}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                 ${data.similarity}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            feedbackDiv.innerHTML = feedbackHTML;
+
+            // Update progress stats if they exist
+            if (data.attempts !== undefined) {
+                const statsElements = document.querySelectorAll('.progress-stats .display-6');
+                if (statsElements.length >= 3) {
+                    statsElements[0].textContent = data.attempts;
+                    statsElements[1].textContent = data.accuracy + '%';
+                    statsElements[2].innerHTML = data.mastered ?
+                        '<span class="text-success">✓</span>' :
+                        '<span class="text-warning">↻</span>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('feedback').innerHTML = `
+                <div class="alert alert-danger">
+                    <p>An error occurred while checking your drawing. Please try again.</p>
+                </div>
+            `;
+        });
+    });
+
+    // Initialize canvas on load
+    initCanvas();
+});
 </script>
 {% endblock %}
