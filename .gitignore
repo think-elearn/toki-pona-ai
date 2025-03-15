@@ -20,3 +20,6 @@ staticfiles/
 
 # coverage
 .coverage
+
+# media
+media/
