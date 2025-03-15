@@ -1,7 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.template.loader import render_to_string
+from django.http import HttpResponseBadRequest
 
 from .models import ListeningExerciseProgress, TokiPonaPhrase
 from .services import TranslationService, TranscriptService
@@ -62,8 +61,10 @@ def check_translation(request):
         translation_service = TranslationService()
         result = translation_service.validate_translation(phrase_id, translation)
 
-        # Update progress tracking
+        # Get the phrase for context
         phrase = get_object_or_404(TokiPonaPhrase, pk=phrase_id)
+
+        # Update progress tracking
         progress, created = ListeningExerciseProgress.objects.get_or_create(
             user=request.user, phrase=phrase
         )
@@ -73,24 +74,17 @@ def check_translation(request):
             progress.completed = True
         progress.save()
 
-        # Render the feedback template with the result
-        html = render_to_string(
-            "listening/partials/feedback.html",
-            {
-                "is_correct": result["is_correct"],
-                "feedback": result["feedback"],
-                "correct_translations": result.get("correct_translations", []),
-                "phrase_id": phrase_id,
-                "progress": progress,
-            },
-            request=request,
-        )
+        # Render the feedback template directly
+        context = {
+            "is_correct": result["is_correct"],
+            "feedback": result["feedback"],
+            "correct_translations": result.get("correct_translations", []),
+            "phrase_id": phrase_id,
+            "phrase": phrase,
+            "progress": progress,
+        }
 
-        return JsonResponse(
-            {
-                "html": html,
-                "is_correct": result["is_correct"],
-            }
-        )
+        # Return the rendered HTML directly, not as JSON
+        return render(request, "listening/partials/feedback.html", context)
 
     return HttpResponseBadRequest("Invalid request")
