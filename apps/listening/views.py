@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.template.loader import render_to_string
 
-from .models import TokiPonaPhrase
+from .models import ListeningExerciseProgress, TokiPonaPhrase
 from .services import TranslationService, TranscriptService
 
 
@@ -62,6 +62,17 @@ def check_translation(request):
         translation_service = TranslationService()
         result = translation_service.validate_translation(phrase_id, translation)
 
+        # Update progress tracking
+        phrase = get_object_or_404(TokiPonaPhrase, pk=phrase_id)
+        progress, created = ListeningExerciseProgress.objects.get_or_create(
+            user=request.user, phrase=phrase
+        )
+        progress.total_attempts += 1
+        if result["is_correct"]:
+            progress.correct_attempts += 1
+            progress.completed = True
+        progress.save()
+
         # Render the feedback template with the result
         html = render_to_string(
             "listening/partials/feedback.html",
@@ -70,6 +81,7 @@ def check_translation(request):
                 "feedback": result["feedback"],
                 "correct_translations": result.get("correct_translations", []),
                 "phrase_id": phrase_id,
+                "progress": progress,
             },
             request=request,
         )
