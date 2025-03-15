@@ -4,7 +4,7 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.template.loader import render_to_string
 
 from .models import TokiPonaPhrase
-from .services import TranslationService
+from .services import TranslationService, TranscriptService
 
 
 @login_required
@@ -35,11 +35,9 @@ def exercise(request, pk):
     """Display a specific Toki Pona exercise with audio and transcript."""
     phrase = get_object_or_404(TokiPonaPhrase, pk=pk)
 
-    # Parse the transcript if available (would be implemented in a service)
+    # Parse the transcript if available
     parsed_transcript = None
     if phrase.transcript:
-        from .services import TranscriptService
-
         parsed_transcript = TranscriptService.parse_transcript(phrase.transcript)
 
     context = {
