@@ -36,6 +36,16 @@
         border-radius: 5px;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
+
+    .htmx-indicator {
+        display: none;
+    }
+    .htmx-request .htmx-indicator {
+        display: inline-block;
+    }
+    .htmx-request.htmx-indicator {
+        display: inline-block;
+    }
 </style>
 {% endblock %}
 
@@ -97,7 +107,8 @@
                 <div class="translation-form">
                     <form hx-post="{% url 'listening:check_translation' %}"
                           hx-target="#feedback"
-                          hx-swap="innerHTML">
+                          hx-swap="innerHTML"
+                          hx-indicator="#loading-indicator">
                         {% csrf_token %}
                         <input type="hidden" name="phrase_id" value="{{ phrase.pk }}">
 
@@ -111,8 +122,13 @@
                                    required>
                         </div>
 
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">Check Translation</button>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                Check Translation
+                                <span id="loading-indicator" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </span>
+                            </button>
                         </div>
                     </form>
 
