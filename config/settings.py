@@ -87,28 +87,12 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Database configuration
-DATABASE_ENGINE = env("DATABASE_ENGINE", default="postgresql")
-
-if DATABASE_ENGINE == "sqlite":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / env("DATABASE_NAME", default="db.sqlite3"),
-        }
-    }
-else:
-    # Default to PostgreSQL
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("DATABASE_NAME", default="toki_pona_db"),
-            "USER": env("DATABASE_USER", default="postgres"),
-            "PASSWORD": env("DATABASE_PASSWORD", default="postgres"),
-            "HOST": env("DATABASE_HOST", default="localhost"),
-            "PORT": env("DATABASE_PORT", default="5432"),
-            "CONN_MAX_AGE": 600,
-        }
-    }
+DATABASES = {
+    "default": env.db(
+        "DATABASE_URL",
+        default="postgres:///toki-pona-db",
+    ),
+}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

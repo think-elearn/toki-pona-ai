@@ -2,6 +2,11 @@
 
 This is an AI-powered Toki Pona language learning app based on prototypes created during ExamPro's 2025 GenAI Essentials bootcamp. See the [bootcamp repository](https://github.com/dr-rompecabezas/free-genai-bootcamp-2025) for the related projects.
 
+## Pre-requisites
+
+- Python 3.9 or higher
+- PostgreSQL
+
 ## Installation
 
 ### Install dependencies
@@ -10,26 +15,14 @@ This is an AI-powered Toki Pona language learning app based on prototypes create
 pip install -r requirements.txt requirements-dev.txt
 ```
 
-### Configure the database
+### Configure the application
 
-For SQLite (for development):
+Create a PostgreSQL database named `toki_pona_db`.
 
-```bash
-echo "DATABASE_ENGINE=sqlite3
-DATABASE_NAME=sqlite3
-SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')
-DEBUG=True" > .env
-```
-
-For PostgreSQL (default):
+Then create a `.env` file with the following command:
 
 ```bash
-echo "DATABASE_ENGINE=postgresql
-DATABASE_NAME=toki_pona_db
-DATABASE_USER=postgres
-DATABASE_PASSWORD=postgres
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
+echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/toki_pona_db
 SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')
 DEBUG=True" > .env
 ```
@@ -50,4 +43,18 @@ python manage.py createsuperuser
 
 ```bash
 python manage.py runserver
+```
+
+## Seed the database with sample data
+
+```bash
+python manage.py load_sample_phrases
+python manage.py load_sample_glyphs
+python manage.py load_sample_signs
+```
+
+## Testing
+
+```bash
+pytest
 ```
