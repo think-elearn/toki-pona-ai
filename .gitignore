@@ -23,3 +23,6 @@ staticfiles/
 
 # media
 media/
+
+# IDE and code assistants config
+Claude.md
