@@ -17,9 +17,13 @@ urlpatterns = [
 
 # Add debug toolbar URLs in development
 if settings.DEBUG:
-    import debug_toolbar
+    try:
+        import debug_toolbar
 
-    urlpatterns += [
-        path("__debug__/", include(debug_toolbar.urls)),
-    ]
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+        urlpatterns += [
+            path("__debug__/", include(debug_toolbar.urls)),
+        ]
+    except ModuleNotFoundError:
+        pass  # Skip debug toolbar if not installed
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -20,12 +20,12 @@ RUN pip install gunicorn
 # Copy project
 COPY . .
 
-# Collect static files
+# Collect static files with dummy database for build
+ENV DATABASE_URL=sqlite:///tmp/dummy-db.sqlite3
 RUN python manage.py collectstatic --noinput
 
-# Run migrations and load initial data
-RUN mkdir -p /app/media
+# Migrations will be run by the release command in fly.toml
 
 # Set up entry point
 EXPOSE 8000
-CMD gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+CMD gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000}

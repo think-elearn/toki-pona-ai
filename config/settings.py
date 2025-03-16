@@ -46,7 +46,21 @@ INSTALLED_APPS = [
 
 # Add debug toolbar in development
 if DEBUG:
-    INSTALLED_APPS += ["debug_toolbar", "django_extensions"]
+    try:
+        import debug_toolbar  # noqa: F401
+
+        INSTALLED_APPS.append("debug_toolbar")
+    except ModuleNotFoundError:
+        pass  # Do nothing if debug_toolbar is not installed
+
+# Add django-extensions in development
+if DEBUG:
+    try:
+        import django_extensions  # noqa: F401
+
+        INSTALLED_APPS.append("django_extensions")
+    except ImportError:
+        pass  # Ignore if not installed
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -63,8 +77,13 @@ MIDDLEWARE = [
 
 # Add debug toolbar middleware in development
 if DEBUG:
-    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
-    INTERNAL_IPS = ["127.0.0.1"]
+    try:
+        import debug_toolbar  # noqa: F401
+
+        MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
+        INTERNAL_IPS = ["127.0.0.1"]
+    except ModuleNotFoundError:
+        pass  # Do nothing if debug_toolbar is not installed
 
 ROOT_URLCONF = "config.urls"
 
@@ -87,12 +106,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Database configuration
-DATABASES = {
-    "default": env.db(
-        "DATABASE_URL",
-        default="postgres:///toki-pona-db",
-    ),
-}
+DATABASES = {"default": env.db("DATABASE_URL", default=None)}
+
+if not DATABASES["default"]:
+    raise ValueError("DATABASE_URL is not set. Make sure to add it as a Fly.io secret.")
+
+if "ENGINE" not in DATABASES["default"]:
+    DATABASES["default"]["ENGINE"] = "django.db.backends.postgresql"
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -131,17 +151,26 @@ if DEBUG:
     MEDIA_URL = "media/"
     MEDIA_ROOT = BASE_DIR / "media"
 else:
-    # AWS S3 settings for production
+    # For production, update STORAGES configuration
+    # instead of using DEFAULT_FILE_STORAGE
+    # AWS S3 settings for production if needed
     AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
     AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="")
-    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
-    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
-    AWS_DEFAULT_ACL = "public-read"
 
-    # S3 media settings
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+    if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY and AWS_STORAGE_BUCKET_NAME:
+        # Use S3 for media
+        AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+        AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+        AWS_DEFAULT_ACL = "public-read"
+
+        # Update STORAGES config
+        STORAGES["default"] = {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}
+        MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+    else:
+        # Fallback to local file storage for media
+        MEDIA_URL = "media/"
+        MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
