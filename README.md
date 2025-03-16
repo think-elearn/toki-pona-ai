@@ -1,23 +1,45 @@
 # AI-Powered Toki Pona Language Learning App
 
-This is an AI-powered Toki Pona language learning app based on prototypes created during ExamPro's 2025 GenAI Essentials bootcamp. See the [bootcamp repository](https://github.com/dr-rompecabezas/free-genai-bootcamp-2025) for the related projects.
+[![Build Status](https://github.com/think-elearn/toki-pona-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/think-elearn/toki-pona-ai/actions)
+
+This is an AI-powered Toki Pona language learning app based on prototypes created during ExamPro's 2025 GenAI Essentials bootcamp. See the original [bootcamp repository](https://github.com/dr-rompecabezas/free-genai-bootcamp-2025) for the projects that inspired this app.
 
 ## Pre-requisites
 
-- Python 3.9 or higher
+- Python 3.11
 - PostgreSQL
 
 ## Installation
 
+### Clone the repository
+
+```bash
+git clone https://github.com/think-elearn/toki-pona-ai
+cd toki-pona-ai
+```
+
+### Create a virtual environment
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
 ### Install dependencies
 
 ```bash
-pip install -r requirements.txt requirements-dev.txt
+pip install -r requirements.txt
 ```
 
-### Configure the application
+### Set up the database
 
 Create a PostgreSQL database named `toki_pona_db`.
+
+```bash
+psql -U postgres
+CREATE DATABASE toki_pona_db;
+\q
+```
 
 Then create a `.env` file with the following command:
 
