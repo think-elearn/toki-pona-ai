@@ -1,27 +1,36 @@
 app = "toki-pona-ai"
-primary_region = "yyz" # Change this to your preferred region
+primary_region = "yyz"
 
 [build]
-  dockerfile = "Dockerfile"
+  builder = "paketobuildpacks/builder:base"
 
 [env]
+  PORT = "8000"
+  PYTHONUNBUFFERED = "1"
+  DJANGO_SETTINGS_MODULE = "config.settings"
   DEBUG = "false"
-  ALLOWED_HOSTS = "*.fly.dev"
 
 [http_service]
   internal_port = 8000
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
   processes = ["app"]
 
 [[statics]]
   guest_path = "/app/staticfiles"
   url_prefix = "/static"
 
-[deploy]
-  release_command = "python manage.py migrate"
+[[services.ports]]
+  port = 443
+  handlers = ["tls", "http"]
+  force_https = true
+
+[[services.ports]]
+  port = 80
+  handlers = ["http"]
+  force_https = true
 
 [processes]
-  app = "gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+  web = "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
