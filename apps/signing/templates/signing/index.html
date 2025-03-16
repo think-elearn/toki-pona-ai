@@ -1,34 +1,202 @@
 {% extends "base.html" %}
+{% load static %}
+{% load signing_tags %}
 
 {% block title %}Signing Practice - Toki Pona{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sign-card {
+        transition: transform 0.2s;
+    }
+    .sign-card:hover {
+        transform: translateY(-5px);
+    }
+    .thumbnail-container {
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+    .progress-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    .mastered {
+        background-color: #28a745;
+    }
+    .in-progress {
+        background-color: #ffc107;
+    }
+    .not-started {
+        background-color: #e9ecef;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
         <h1 class="mb-4">Luka Pona Signing Practice</h1>
-        <p class="lead">Select a sign to practice:</p>
+        <p class="lead">Practice Toki Pona sign language (Luka Pona) with your webcam:</p>
     </div>
 </div>
 
+<!-- Beginner Signs -->
 <div class="row mt-4">
-    {% if signs %}
-        {% for sign in signs %}
-            <div class="col-md-4 mb-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ sign.name }}</h5>
-                        <p class="card-text">Practice the sign for "{{ sign.name }}" in Luka Pona.</p>
-                        <a href="{% url 'signing:practice' sign.pk %}" class="btn btn-primary">Practice This Sign</a>
-                    </div>
-                </div>
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success bg-opacity-25">
+                <h2 class="h4 mb-0">Beginner Signs</h2>
             </div>
-        {% endfor %}
-    {% else %}
-        <div class="col-12">
-            <div class="alert alert-info">
-                No signs are available yet. Please check back later.
+            <div class="card-body">
+                {% if beginner_signs %}
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+                        {% for sign in beginner_signs %}
+                            <div class="col">
+                                <div class="card h-100 sign-card">
+                                    <div class="thumbnail-container p-2">
+                                        {% if sign.thumbnail %}
+                                            <img src="{{ sign.thumbnail.url }}" alt="{{ sign.name }}" class="img-fluid" style="max-height: 80px;">
+                                        {% else %}
+                                            <div class="text-center text-muted pt-4">
+                                                <i class="bi bi-hand-index-thumb" style="font-size: 2rem;"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ sign.name }}</h5>
+                                        <p class="card-text small text-secondary">{{ sign.meaning }}</p>
+                                        {% if user_progress and sign.id in user_progress %}
+                                            <div class="mb-2">
+                                                {% if user_progress|get_item:sign.id|get_item:'mastered' %}
+                                                    <span class="progress-indicator mastered" title="Mastered"></span>
+                                                {% elif user_progress|get_item:sign.id|get_item:'attempts' > 0 %}
+                                                    <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                {% else %}
+                                                    <span class="progress-indicator not-started" title="Not Started"></span>
+                                                {% endif %}
+                                                <span class="small">{{ user_progress|get_item:sign.id|get_item:'accuracy' }}%</span>
+                                            </div>
+                                        {% endif %}
+                                        <a href="{% url 'signing:practice' sign.pk %}" class="btn btn-primary btn-sm d-block">Practice</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-center text-muted">No beginner signs available yet.</p>
+                {% endif %}
             </div>
         </div>
-    {% endif %}
+    </div>
+</div>
+
+<!-- Intermediate Signs -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary bg-opacity-25">
+                <h2 class="h4 mb-0">Intermediate Signs</h2>
+            </div>
+            <div class="card-body">
+                {% if intermediate_signs %}
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+                        {% for sign in intermediate_signs %}
+                            <div class="col">
+                                <div class="card h-100 sign-card">
+                                    <div class="thumbnail-container p-2">
+                                        {% if sign.thumbnail %}
+                                            <img src="{{ sign.thumbnail.url }}" alt="{{ sign.name }}" class="img-fluid" style="max-height: 80px;">
+                                        {% else %}
+                                            <div class="text-center text-muted pt-4">
+                                                <i class="bi bi-hand-index-thumb" style="font-size: 2rem;"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ sign.name }}</h5>
+                                        <p class="card-text small text-secondary">{{ sign.meaning }}</p>
+                                        {% if user_progress and sign.id in user_progress %}
+                                            <div class="mb-2">
+                                                {% if user_progress|get_item:sign.id|get_item:'mastered' %}
+                                                    <span class="progress-indicator mastered" title="Mastered"></span>
+                                                {% elif user_progress|get_item:sign.id|get_item:'attempts' > 0 %}
+                                                    <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                {% else %}
+                                                    <span class="progress-indicator not-started" title="Not Started"></span>
+                                                {% endif %}
+                                                <span class="small">{{ user_progress|get_item:sign.id|get_item:'accuracy' }}%</span>
+                                            </div>
+                                        {% endif %}
+                                        <a href="{% url 'signing:practice' sign.pk %}" class="btn btn-primary btn-sm d-block">Practice</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-center text-muted">No intermediate signs available yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Signs -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning bg-opacity-25">
+                <h2 class="h4 mb-0">Advanced Signs</h2>
+            </div>
+            <div class="card-body">
+                {% if advanced_signs %}
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+                        {% for sign in advanced_signs %}
+                            <div class="col">
+                                <div class="card h-100 sign-card">
+                                    <div class="thumbnail-container p-2">
+                                        {% if sign.thumbnail %}
+                                            <img src="{{ sign.thumbnail.url }}" alt="{{ sign.name }}" class="img-fluid" style="max-height: 80px;">
+                                        {% else %}
+                                            <div class="text-center text-muted pt-4">
+                                                <i class="bi bi-hand-index-thumb" style="font-size: 2rem;"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ sign.name }}</h5>
+                                        <p class="card-text small text-secondary">{{ sign.meaning }}</p>
+                                        {% if user_progress and sign.id in user_progress %}
+                                            <div class="mb-2">
+                                                {% if user_progress|get_item:sign.id|get_item:'mastered' %}
+                                                    <span class="progress-indicator mastered" title="Mastered"></span>
+                                                {% elif user_progress|get_item:sign.id|get_item:'attempts' > 0 %}
+                                                    <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                {% else %}
+                                                    <span class="progress-indicator not-started" title="Not Started"></span>
+                                                {% endif %}
+                                                <span class="small">{{ user_progress|get_item:sign.id|get_item:'accuracy' }}%</span>
+                                            </div>
+                                        {% endif %}
+                                        <a href="{% url 'signing:practice' sign.pk %}" class="btn btn-primary btn-sm d-block">Practice</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-center text-muted">No advanced signs available yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
