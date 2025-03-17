@@ -69,7 +69,7 @@ class ListeningViewsTests(TestCase):
         response = self.client.post(
             reverse("listening:check_translation"),
             {"phrase_id": self.beginner_phrase.id, "translation": "Hello!"},
-            HTTP_HX_REQUEST="true",  # Simulate HTMX request
+            headers={"hx-request": "true"},  # Simulate HTMX request
         )
 
         self.assertEqual(response.status_code, 200)
@@ -95,7 +95,7 @@ class ListeningViewsTests(TestCase):
                 "phrase_id": self.beginner_phrase.id,
                 "translation": "Goodbye!",  # Incorrect translation
             },
-            HTTP_HX_REQUEST="true",  # Simulate HTMX request
+            headers={"hx-request": "true"},  # Simulate HTMX request
         )
 
         self.assertEqual(response.status_code, 200)
@@ -126,7 +126,7 @@ class ListeningViewsTests(TestCase):
         check_response = self.client.post(
             reverse("listening:check_translation"),
             {"phrase_id": self.beginner_phrase.id, "translation": "Hello!"},
-            HTTP_HX_REQUEST="true",
+            headers={"hx-request": "true"},
         )
 
         # All should redirect to login

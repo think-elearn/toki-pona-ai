@@ -43,7 +43,7 @@ class Command(BaseCommand):
                 "translations": ["Are you good?", "Are you well?", "How are you?"],
                 "difficulty": TokiPonaPhrase.DifficultyLevel.BEGINNER,
                 "transcript": (
-                    "WEBVTT\n\n00:00:00.000 --> 00:00:03.000\n" "sina pona ala pona?"
+                    "WEBVTT\n\n00:00:00.000 --> 00:00:03.000\nsina pona ala pona?"
                 ),
                 "youtube_video_id": None,
             },

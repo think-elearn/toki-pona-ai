@@ -1,5 +1,3 @@
-# apps/listening/services.py
-
 class TranslationService:
     """Service class for validating translations."""
 
