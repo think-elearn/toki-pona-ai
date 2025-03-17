@@ -30,7 +30,7 @@ This document outlines a streamlined architecture for a Django-based Toki Pona l
 ### 3.1 Framework & Core
 
 - **Django 4.2+**: Web framework with built-in templating
-- **Python 3.9+**: Programming language
+- **Python 3.12+**: Programming language
 - **PostgreSQL**: Database (Heroku/Fly.io compatible)
 - **Gunicorn**: WSGI server for production
 

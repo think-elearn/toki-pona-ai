@@ -6,7 +6,7 @@ This is an AI-powered Toki Pona language learning app based on prototypes create
 
 ## Pre-requisites
 
-- Python 3.11
+- Python 3.12
 - PostgreSQL
 
 ## Installation
