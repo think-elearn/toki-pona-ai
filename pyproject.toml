@@ -36,3 +36,9 @@ dev = [
     "pytest-django>=4.10.0",
     "ruff>=0.11.0",
 ]
+
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = "tests.py test_*.py *_tests.py"
+addopts = "--cov=. --cov-report=term"
