@@ -1,6 +1,7 @@
 # AI-Powered Toki Pona Language Learning App
 
 [![Build Status](https://github.com/think-elearn/toki-pona-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/think-elearn/toki-pona-ai/actions)
+[![Dependabot Updates](https://github.com/think-elearn/toki-pona-ai/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/think-elearn/toki-pona-ai/actions/workflows/dependabot/dependabot-updates)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/think-elearn/toki-pona-ai/main.svg)](https://results.pre-commit.ci/latest/github/think-elearn/toki-pona-ai/main)
 [![codecov](https://codecov.io/gh/think-elearn/toki-pona-ai/branch/main/graph/badge.svg)](https://codecov.io/gh/think-elearn/toki-pona-ai)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -32,7 +33,7 @@ source venv/bin/activate
 ### Install dependencies
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -e ".[dev]"
 ```
 
 ### Set up the database
