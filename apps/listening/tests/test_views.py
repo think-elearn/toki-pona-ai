@@ -61,7 +61,7 @@ class ListeningViewsTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "listening/exercise.html")
+        self.assertTemplateUsed(response, "listening/practice.html")
         self.assertIn("phrase", response.context)
         self.assertEqual(response.context["phrase"], self.beginner_phrase)
 

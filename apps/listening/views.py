@@ -44,7 +44,7 @@ def exercise(request, pk):
         "parsed_transcript": parsed_transcript,
     }
 
-    return render(request, "listening/exercise.html", context)
+    return render(request, "listening/practice.html", context)
 
 
 @login_required
