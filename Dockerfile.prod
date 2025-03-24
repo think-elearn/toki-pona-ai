@@ -9,16 +9,22 @@ ENV UV_LINK_MODE=copy
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies for ML libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     postgresql-client \
+    git \
+    # OpenCV dependencies
     libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
     libxrender1 \
     libxext6 \
+    # SVG processing dependencies
+    libcairo2-dev \
+    pkg-config \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the project's dependencies using the lockfile and settings

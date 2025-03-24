@@ -2,7 +2,7 @@ app = 'toki-pona-ai'
 primary_region = 'yyz'
 
 [build]
-  dockerfile = 'Dockerfile'
+  dockerfile = 'Dockerfile.prod'
 
 [env]
   DEBUG = 'false'
