@@ -31,6 +31,7 @@ jobs:
       # postgres://user:password@host:port/database
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
       DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: secret-key
       PYTHONPATH: ${{ github.workspace }}
 
     steps:
