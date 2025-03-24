@@ -1,20 +1,23 @@
+"""
+Base settings for Toki Pona AI project.
+"""
+
 from pathlib import Path
+
 import environ
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Initialize environment variables
 env = environ.Env()
 environ.Env.read_env()
 
-# Build paths inside the project
-BASE_DIR = Path(__file__).resolve().parent.parent
-
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env(
-    "SECRET_KEY", default="django-insecure-development-key-change-in-production"
-)
+SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool("DEBUG", default=True)
+DEBUG = env.bool("DEBUG", default=False)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
@@ -44,24 +47,6 @@ INSTALLED_APPS = [
     "apps.signing",
 ]
 
-# Add debug toolbar in development
-if DEBUG:
-    try:
-        import debug_toolbar  # noqa: F401
-
-        INSTALLED_APPS.append("debug_toolbar")
-    except ModuleNotFoundError:
-        pass  # Do nothing if debug_toolbar is not installed
-
-# Add django-extensions in development
-if DEBUG:
-    try:
-        import django_extensions  # noqa: F401
-
-        INSTALLED_APPS.append("django_extensions")
-    except ImportError:
-        pass  # Ignore if not installed
-
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -71,19 +56,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django_htmx.middleware.HtmxMiddleware",
     "allauth.account.middleware.AccountMiddleware",
 ]
-
-# Add debug toolbar middleware in development
-if DEBUG:
-    try:
-        import debug_toolbar  # noqa: F401
-
-        MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
-        INTERNAL_IPS = ["127.0.0.1"]
-    except ModuleNotFoundError:
-        pass  # Do nothing if debug_toolbar is not installed
 
 ROOT_URLCONF = "config.urls"
 
@@ -105,14 +79,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Database configuration
-DATABASES = {"default": env.db("DATABASE_URL", default=None)}
-
-if not DATABASES["default"]:
-    raise ValueError("DATABASE_URL is not set. Make sure to add it as a Fly.io secret.")
-
-if "ENGINE" not in DATABASES["default"]:
-    DATABASES["default"]["ENGINE"] = "django.db.backends.postgresql"
+# Database
+# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+DATABASES = {
+    "default": env.db(
+        "DATABASE_URL",
+        default="postgres:///toki_pona_db",
+        engine="django.db.backends.postgresql",
+    ),
+}
+DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -132,6 +108,9 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
+# Default primary key field type
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -145,38 +124,15 @@ STORAGES = {
     },
 }
 
-# Media files
-if DEBUG:
-    MEDIA_URL = "media/"
-    MEDIA_ROOT = BASE_DIR / "media"
-else:
-    # For production, update STORAGES configuration
-    # instead of using DEFAULT_FILE_STORAGE
-    # AWS S3 settings for production if needed
-    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
-    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
-    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="")
-
-    if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY and AWS_STORAGE_BUCKET_NAME:
-        # Use S3 for media
-        AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
-        AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
-        AWS_DEFAULT_ACL = "public-read"
-
-        # Update STORAGES config
-        STORAGES["default"] = {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}
-        MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
-    else:
-        # Fallback to local file storage for media
-        MEDIA_URL = "media/"
-        MEDIA_ROOT = BASE_DIR / "media"
-
-# Default primary key field type
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Crispy Forms
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-CRISPY_TEMPLATE_PACK = "bootstrap5"
+# Model storage configuration - base settings that will be overridden
+ML_MODELS_STORAGE = {
+    "USE_S3": False,
+    "LOCAL_MODELS_DIR": BASE_DIR / "ml_models",
+    "S3_MODELS_BUCKET_NAME": env("AWS_STORAGE_BUCKET_NAME", default=""),
+    "S3_MODELS_KEY_PREFIX": "ml_models/",
+    "MOBILENET_MODEL_PATH": "mobilenet_v3_small.tflite",
+    "MOBILENET_MODEL_URL": "https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/1/mobilenet_v3_small.tflite",
+}
 
 # Django AllAuth settings
 AUTHENTICATION_BACKENDS = [
@@ -191,3 +147,7 @@ ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 LOGIN_REDIRECT_URL = "dashboard:home"
 ACCOUNT_LOGOUT_REDIRECT_URL = "account_login"
+
+# Crispy forms
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"

@@ -6,7 +6,7 @@ primary_region = 'yyz'
 
 [env]
   DEBUG = 'false'
-  DJANGO_SETTINGS_MODULE = 'config.settings'
+  DJANGO_SETTINGS_MODULE = 'config.settings.production'
   PORT = '8000'
   PYTHONUNBUFFERED = '1'
 
