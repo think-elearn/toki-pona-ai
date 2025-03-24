@@ -1,14 +1,32 @@
-import json
+"""
+Tests for Writing app views.
+"""
 
+import base64
+import json
+from io import BytesIO
+from unittest.mock import patch
+
+import pytest
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
+from PIL import Image
 
 from apps.writing.models import Glyph, GlyphPracticeProgress
+from apps.writing.tests.mocks import (
+    MockCharacterRecognitionService,
+    MockSVGService,
+    MockTemplateService,
+)
 
 
+@pytest.mark.django_db
 class WritingViewsTests(TestCase):
+    """Tests for Writing app views with mocked services."""
+
     def setUp(self):
+        """Set up test data."""
         # Create test user
         self.user = User.objects.create_user(
             username="testuser", email="test@example.com", password="testpassword"
@@ -16,19 +34,19 @@ class WritingViewsTests(TestCase):
 
         # Create test glyphs at different difficulty levels
         self.beginner_glyph = Glyph.objects.create(
-            name="beginner",
+            name="a",
             meaning="beginner test",
             difficulty=Glyph.DifficultyLevel.BEGINNER,
         )
 
         self.intermediate_glyph = Glyph.objects.create(
-            name="intermediate",
+            name="b",
             meaning="intermediate test",
             difficulty=Glyph.DifficultyLevel.INTERMEDIATE,
         )
 
         self.advanced_glyph = Glyph.objects.create(
-            name="advanced",
+            name="c",
             meaning="advanced test",
             difficulty=Glyph.DifficultyLevel.ADVANCED,
         )
@@ -44,8 +62,14 @@ class WritingViewsTests(TestCase):
         # Log in the test user
         self.client.login(username="testuser", password="testpassword")
 
+        # Set up mocks
+        self.mock_recognition = MockCharacterRecognitionService()
+        self.mock_svg = MockSVGService()
+        self.mock_template = MockTemplateService()
+
+    @patch("apps.writing.views.svg_service", MockSVGService())
     def test_index_view(self):
-        """Test that index view displays correctly with categorized glyphs"""
+        """Test that index view displays correctly with categorized glyphs."""
         response = self.client.get(reverse("writing:index"))
 
         self.assertEqual(response.status_code, 200)
@@ -64,9 +88,13 @@ class WritingViewsTests(TestCase):
             60,  # 3/5 = 60%
         )
 
+        # Check that SVG URLs are included
+        self.assertIn("svg_urls", response.context)
+
+    @patch("apps.writing.views.svg_service", MockSVGService())
     def test_practice_view(self):
-        """Test that practice view displays correctly"""
-        response = self.client.get(reverse("writing:practice", args=["beginner"]))
+        """Test that practice view displays correctly."""
+        response = self.client.get(reverse("writing:practice", args=["a"]))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "writing/practice.html")
@@ -75,19 +103,28 @@ class WritingViewsTests(TestCase):
         self.assertEqual(response.context["glyph"], self.beginner_glyph)
         self.assertEqual(response.context["progress"], self.progress)
         self.assertEqual(response.context["recent_accuracy"], 60)
+        self.assertIn("svg_url", response.context)
 
+    @patch(
+        "apps.writing.views.character_recognition", MockCharacterRecognitionService()
+    )
     def test_check_drawing(self):
-        """Test that drawing can be submitted and evaluated"""
+        """Test that drawing can be submitted and evaluated."""
+        # Create a simple test image and convert to base64
+        image = Image.new("RGB", (100, 100), color=(255, 255, 255))
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        base64_image = (
+            "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
+        )
+
         # Test data for the drawing submission
         post_data = {
-            "glyph_name": "beginner",
-            # Break the long line into multiple lines
-            "image_data": (
-                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA"  # Minimal test data
-            ),
+            "glyph_name": "a",
+            "image_data": base64_image,
         }
 
-        # Since we're using a simulated recognition, this should work
+        # Submit the drawing
         response = self.client.post(
             reverse("writing:check_drawing"),
             json.dumps(post_data),
@@ -113,21 +150,36 @@ class WritingViewsTests(TestCase):
         )
         self.assertEqual(progress.attempts, 6)  # 5 existing + 1 new
 
+    @patch("apps.writing.views.svg_service", MockSVGService())
+    def test_get_svg_content(self):
+        """Test getting SVG content."""
+        response = self.client.get(reverse("writing:get_svg_content", args=["a"]))
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn("svg_content", data)
+        self.assertIn("<svg", data["svg_content"])
+
+        # Test non-existent SVG
+        response = self.client.get(
+            reverse("writing:get_svg_content", args=["nonexistent"])
+        )
+        self.assertEqual(response.status_code, 404)
+
     def test_authentication_required(self):
-        """Test that all views require authentication"""
+        """Test that all views require authentication."""
         # Logout first
         self.client.logout()
 
         # Try to access the pages
         index_response = self.client.get(reverse("writing:index"))
-        practice_response = self.client.get(
-            reverse("writing:practice", args=["beginner"])
-        )
+        practice_response = self.client.get(reverse("writing:practice", args=["a"]))
         check_response = self.client.post(
             reverse("writing:check_drawing"),
-            json.dumps({"glyph_name": "beginner", "image_data": "test"}),
+            json.dumps({"glyph_name": "a", "image_data": "test"}),
             content_type="application/json",
         )
+        svg_response = self.client.get(reverse("writing:get_svg_content", args=["a"]))
 
         # All should redirect to login
         self.assertEqual(index_response.status_code, 302)
@@ -138,3 +190,6 @@ class WritingViewsTests(TestCase):
 
         self.assertEqual(check_response.status_code, 302)
         self.assertIn("/accounts/login/", check_response.url)
+
+        self.assertEqual(svg_response.status_code, 302)
+        self.assertIn("/accounts/login/", svg_response.url)
