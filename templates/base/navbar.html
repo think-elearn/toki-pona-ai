@@ -35,9 +35,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'account_login' %}">Log In</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'account_signup' %}">Sign Up</a>
-                    </li>
+                    {% if ACCOUNT_ALLOW_REGISTRATION %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'account_signup' %}">Sign Up</a>
+                        </li>
+                    {% endif %}
                 {% endif %}
             </ul>
         </div>

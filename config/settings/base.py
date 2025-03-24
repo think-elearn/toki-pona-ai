@@ -72,6 +72,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.accounts.context_processors.allauth_settings",
             ],
         },
     },
@@ -142,11 +143,14 @@ AUTHENTICATION_BACKENDS = [
 
 SITE_ID = 1
 
+ACCOUNT_ALLOW_REGISTRATION = env.bool("ACCOUNT_ALLOW_REGISTRATION", default=True)
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 LOGIN_REDIRECT_URL = "dashboard:home"
 ACCOUNT_LOGOUT_REDIRECT_URL = "account_login"
+ACCOUNT_ADAPTER = "apps.accounts.adapters.AccountAdapter"
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.SocialAccountAdapter"
 
 # Crispy forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"

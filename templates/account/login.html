@@ -45,10 +45,11 @@
             <button class="primaryAction btn btn-primary" type="submit">{% trans "Sign In" %}</button>
           </div>
         </form>
-
-        <div class="text-center mt-4">
-          <p>{% blocktrans %}Don't have an account yet? <a href="{{ signup_url }}" class="text-decoration-none">Sign up</a>.{% endblocktrans %}</p>
-        </div>
+        {% if ACCOUNT_ALLOW_REGISTRATION %}
+          <div class="text-center mt-4">
+            <p>{% blocktrans %}Don't have an account yet? <a href="{{ signup_url }}" class="text-decoration-none">Sign up</a>.{% endblocktrans %}</p>
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>

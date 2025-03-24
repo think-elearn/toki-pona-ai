@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Sign Up Closed" %}{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-6 offset-md-3">
+    <div class="card shadow">
+      <div class="card-body">
+        <h1 class="card-title text-center mb-4">{% trans "Sign Up Closed" %}</h1>
+
+        <div class="alert alert-info text-center" role="alert">
+          <p class="mb-0">
+            {% blocktrans %}We are sorry, but the sign up is currently closed.{% endblocktrans %}
+          </p>
+        </div>
+
+        <div class="text-center mt-4">
+          <a href="{% url 'account_login' %}" class="btn btn-primary">{% trans "Return to Login" %}</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
