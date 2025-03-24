@@ -30,7 +30,7 @@ jobs:
     env:
       # postgres://user:password@host:port/database
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_SETTINGS_MODULE: config.settings.test
       PYTHONPATH: ${{ github.workspace }}
 
     steps:

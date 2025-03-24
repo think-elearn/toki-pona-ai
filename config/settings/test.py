@@ -65,3 +65,5 @@ TEMPLATES[0]["OPTIONS"]["loaders"] = [
     "django.template.loaders.filesystem.Loader",
     "django.template.loaders.app_directories.Loader",
 ]
+# Ensure app_dirs is not set when loaders is defined
+TEMPLATES[0]["APP_DIRS"] = False

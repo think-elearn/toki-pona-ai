@@ -42,12 +42,10 @@ dev = [
     "ruff>=0.11.0",
 ]
 
-
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings.test"
+minversion = "6.0"
 python_files = "tests.py test_*.py *_tests.py"
-addopts = "--cov=. --cov-report=term"
-
+addopts = "--cov=. --cov-report=term --ds=config.settings.test --reuse-db --import-mode=importlib"
 
 [tool.ruff]
 target-version = "py312"
