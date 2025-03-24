@@ -26,3 +26,7 @@ media/
 
 # IDE and code assistants config
 Claude.md
+
+# Test files
+test_media/
+test_ml_models/
