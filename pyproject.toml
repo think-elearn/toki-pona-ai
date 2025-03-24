@@ -9,6 +9,7 @@ authors = [
 ]
 license = "MIT"
 dependencies = [
+    "boto3>=1.37.13",
     "crispy-bootstrap5>=2024.10",
     "django>=4.2.20",
     "django-allauth>=65.5.0",
@@ -18,9 +19,13 @@ dependencies = [
     "django-storages[s3]>=1.14.5",
     "django-widget-tweaks>=1.5.0",
     "gunicorn>=23.0.0",
+    "mediapipe>=0.10.21",
+    "numpy>=1.26.4",
+    "opencv-python>=4.11.0.86",
     "pillow>=11.1.0",
     "psycopg>=3.2.6",
     "python-dotenv>=1.0.1",
+    "redis[hiredis]>=5.2.1",
     "requests>=2.32.3",
     "whitenoise>=6.9.0",
 ]
@@ -39,6 +44,25 @@ dev = [
 
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings"
+DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = "tests.py test_*.py *_tests.py"
 addopts = "--cov=. --cov-report=term"
+
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E203",  # whitespace before ':'
+    "E501",  # line too long
+]
