@@ -34,7 +34,7 @@ AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 AWS_DEFAULT_ACL = "public-read"
 
 # Media files configuration
-MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/media/"
+MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/media/"
 
 # Update STORAGES config to use S3
 STORAGES = {
