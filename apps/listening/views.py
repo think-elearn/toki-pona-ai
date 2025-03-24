@@ -1,9 +1,9 @@
-from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseBadRequest
+from django.shortcuts import get_object_or_404, render
 
 from .models import ListeningExerciseProgress, TokiPonaPhrase
-from .services import TranslationService, TranscriptService
+from .services import TranscriptService, TranslationService
 
 
 @login_required

@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import SignReference, SigningProgress
+
+from .models import SigningProgress, SignReference
 
 
 @admin.register(SignReference)

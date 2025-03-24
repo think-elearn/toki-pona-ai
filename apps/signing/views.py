@@ -1,8 +1,10 @@
-from django.shortcuts import render, get_object_or_404
+import json
+
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from .models import SignReference, SigningProgress
-import json
+from django.shortcuts import get_object_or_404, render
+
+from .models import SigningProgress, SignReference
 
 
 @login_required
@@ -59,7 +61,7 @@ def practice(request, pk):
 
 
 @login_required
-def analyze_sign(request):
+def analyze_sign(request):  # noqa: C901
     """Process and evaluate a user's sign attempt."""
     if request.method == "POST":
         try:

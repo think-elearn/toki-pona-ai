@@ -1,6 +1,7 @@
-from django.test import TestCase
 from django.contrib.auth.models import User
-from apps.signing.models import SignReference, SigningProgress
+from django.test import TestCase
+
+from apps.signing.models import SigningProgress, SignReference
 
 
 class SignReferenceModelTests(TestCase):

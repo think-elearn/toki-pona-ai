@@ -1,8 +1,10 @@
-from django.test import TestCase, Client
-from django.urls import reverse
-from django.contrib.auth.models import User
-from apps.writing.models import Glyph, GlyphPracticeProgress
 import json
+
+from django.contrib.auth.models import User
+from django.test import Client, TestCase
+from django.urls import reverse
+
+from apps.writing.models import Glyph, GlyphPracticeProgress
 
 
 class WritingViewsTests(TestCase):

@@ -1,6 +1,7 @@
 from django.test import TestCase
+
 from apps.listening.models import TokiPonaPhrase
-from apps.listening.services import TranslationService, TranscriptService
+from apps.listening.services import TranscriptService, TranslationService
 
 
 class TranslationServiceTests(TestCase):

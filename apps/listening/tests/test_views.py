@@ -1,7 +1,8 @@
-from django.test import TestCase, Client
-from django.urls import reverse
 from django.contrib.auth.models import User
-from apps.listening.models import TokiPonaPhrase, ListeningExerciseProgress
+from django.test import Client, TestCase
+from django.urls import reverse
+
+from apps.listening.models import ListeningExerciseProgress, TokiPonaPhrase
 
 
 class ListeningViewsTests(TestCase):
