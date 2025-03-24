@@ -33,6 +33,7 @@ jobs:
       DJANGO_SETTINGS_MODULE: config.settings.test
       SECRET_KEY: secret-key
       PYTHONPATH: ${{ github.workspace }}
+      CI: 'true'
 
     steps:
     - uses: actions/checkout@v4

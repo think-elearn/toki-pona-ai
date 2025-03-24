@@ -2,8 +2,11 @@
 Test settings for Toki Pona AI project.
 """
 
+import os
+import tempfile
+
 from .base import *  # noqa
-from .base import BASE_DIR, STORAGES, ML_MODELS_STORAGE, TEMPLATES
+from .base import ML_MODELS_STORAGE, STORAGES, TEMPLATES
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -31,9 +34,9 @@ CACHES = {
     }
 }
 
-# Media files configuration for tests (in-memory)
+# Media files configuration for tests (using temp directory)
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "test_media"
+MEDIA_ROOT = os.path.join(tempfile.gettempdir(), "test_media")
 
 # Update STORAGES config to use local storage
 STORAGES = {
@@ -43,7 +46,9 @@ STORAGES = {
 
 # ML models configuration for tests (mock implementation)
 ML_MODELS_STORAGE["USE_S3"] = False
-ML_MODELS_STORAGE["LOCAL_MODELS_DIR"] = BASE_DIR / "test_ml_models"
+ML_MODELS_STORAGE["LOCAL_MODELS_DIR"] = os.path.join(
+    tempfile.gettempdir(), "test_ml_models"
+)
 
 # Disable most logging during tests
 LOGGING = {

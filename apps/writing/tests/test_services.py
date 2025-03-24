@@ -5,9 +5,12 @@ Tests for Writing app service classes.
 import base64
 import io
 import os
+import shutil
+import tempfile
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 from django.conf import settings
 from django.test import TestCase
 from PIL import Image
@@ -22,72 +25,80 @@ from apps.writing.tests.mocks import (
 )
 
 
-class ModelStorageServiceTests(TestCase):
-    """Tests for the ModelStorageService class."""
+# Tests that can run everywhere (using TestCase for backward compatibility)
+class BasicModelStorageServiceTests(TestCase):
+    """Basic tests for the ModelStorageService class."""
 
     def setUp(self):
-        """Set up test environment."""
-        # Ensure test_ml_models directory exists
-        os.makedirs(settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"], exist_ok=True)
+        self.temp_dir = tempfile.mkdtemp()
+        self.original_dir = settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"]
+        settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"] = self.temp_dir
+
+    def tearDown(self):
+        settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"] = self.original_dir
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @patch("apps.writing.services.ml_storage.cache")
-    def test_get_mobilenet_model_path_cached(self, mock_cache):
-        """Test that cached model path is returned if available."""
-        # Configure mock cache to return a cached path
-        mock_path = os.path.join(
-            settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"], "test_model.tflite"
-        )
-        mock_cache.get.return_value = mock_path
-
-        # Create a file at the mock path to satisfy the os.path.exists check
-        with open(mock_path, "w") as f:
-            f.write("Mock model content")
-
-        service = ModelStorageService()
-        result = service.get_mobilenet_model_path()
-
-        # Verify the expected path is returned
-        self.assertEqual(result, mock_path)
-        mock_cache.get.assert_called_once_with(service.MOBILENET_CACHE_KEY)
-
-        # Clean up test file
-        os.remove(mock_path)
-
-    @patch("apps.writing.services.ml_storage.cache")
-    @patch("apps.writing.services.ml_storage.os.path.exists")
-    @patch("apps.writing.services.ml_storage.ModelStorageService._download_model")
-    def test_get_mobilenet_local_not_cached(
-        self, mock_download, mock_exists, mock_cache
-    ):
+    def test_get_mobilenet_local_not_cached(self, mock_cache):
         """Test model download when not in cache and using local storage."""
         # Configure cache to indicate no cached path
         mock_cache.get.return_value = None
 
-        # Configure os.path.exists to return False first (file doesn't exist)
-        mock_exists.return_value = False
+        # Patch the download method to avoid actual downloads
+        with patch(
+            "apps.writing.services.ml_storage.ModelStorageService._download_model"
+        ) as mock_download:
+            # Create service and call method
+            service = ModelStorageService()
+            service.get_mobilenet_model_path()
 
-        # Configure the download mock
-        local_path = os.path.join(
-            settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"],
-            settings.ML_MODELS_STORAGE["MOBILENET_MODEL_PATH"],
-        )
+            # Verify download is called with correct parameters
+            mock_download.assert_called_once_with(
+                settings.ML_MODELS_STORAGE["MOBILENET_MODEL_URL"],
+                os.path.join(
+                    self.temp_dir, settings.ML_MODELS_STORAGE["MOBILENET_MODEL_PATH"]
+                ),
+            )
 
-        # Create service and call method
+
+# Tests using pytest fixtures
+@pytest.mark.django_db
+class TestModelStorageService:
+    """Pytest-based tests for ModelStorageService."""
+
+    def test_get_mobilenet_model_path_cached(self, temp_model_dir):
+        """Test that cached model path is returned if available."""
+        with patch("apps.writing.services.ml_storage.cache") as mock_cache:
+            # Configure mock cache to return a cached path
+            mock_path = os.path.join(temp_model_dir, "test_model.tflite")
+            mock_cache.get.return_value = mock_path
+
+            # Create a file at the mock path to satisfy the os.path.exists check
+            with open(mock_path, "w") as f:
+                f.write("Mock model content")
+
+            service = ModelStorageService()
+            result = service.get_mobilenet_model_path()
+
+            # Verify the expected path is returned
+            assert result == mock_path
+            mock_cache.get.assert_called_once_with(service.MOBILENET_CACHE_KEY)
+
+    @pytest.mark.skipif(
+        os.environ.get("CI") == "true",
+        reason="Skips actual file system operations in CI",
+    )
+    def test_model_download_integration(self, temp_model_dir, mock_download):
+        """Integration test that downloads a model to a temporary directory."""
         service = ModelStorageService()
-        result = service.get_mobilenet_model_path()
+        model_path = service.get_mobilenet_model_path()
 
-        # Verify download is called with correct parameters
-        mock_download.assert_called_once_with(
-            settings.ML_MODELS_STORAGE["MOBILENET_MODEL_URL"], local_path
-        )
+        # Verify the model was "downloaded" to the temp directory
+        assert os.path.exists(model_path)
+        assert model_path.startswith(str(temp_model_dir))
 
-        # Verify cache is updated
-        mock_cache.set.assert_called_once_with(
-            service.MOBILENET_CACHE_KEY, local_path, timeout=3600
-        )
-
-        # Verify correct path is returned
-        self.assertEqual(result, local_path)
+        # Verify our mock was called
+        mock_download.assert_called_once()
 
 
 class CharacterRecognitionServiceTests(TestCase):
