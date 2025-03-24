@@ -14,6 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     postgresql-client \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the project's dependencies using the lockfile and settings
@@ -33,10 +38,20 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Collect static files with dummy database for build
 ENV DATABASE_URL=sqlite:///tmp/dummy-db.sqlite3
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
+ENV SECRET_KEY=build-time-only-secret-key-not-used-in-production
+ENV ALLOWED_HOSTS="localhost,127.0.0.1,[::1],toki-pona-ai.fly.dev"
+ENV AWS_ACCESS_KEY_ID=build-time-dummy-key
+ENV AWS_SECRET_ACCESS_KEY=build-time-dummy-secret
+ENV BUCKET_NAME=build-time-dummy-bucket
+ENV AWS_REGION=us-east-1
+ENV AWS_ENDPOINT_URL_S3=https://dummy-endpoint
+ENV REDIS_URL=redis://localhost:6379/0
 RUN python manage.py collectstatic --noinput
 
 # Migrations will be run by the release command in fly.toml
 
 # Set up entry point
 EXPOSE 8000
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
 CMD gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000}
