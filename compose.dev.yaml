@@ -1,0 +1,40 @@
+volumes:
+  postgres_data:
+
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=toki_pona_db
+    ports:
+      - "5432:5432"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: >
+      bash -c "python manage.py migrate &&
+               python manage.py load_sample_glyphs &&
+               python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/toki_pona_db
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+      - DEBUG=True
+      - SECRET_KEY=dev-key-replace-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
