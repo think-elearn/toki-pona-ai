@@ -111,6 +111,18 @@
 
                 <div id="feedback" class="mt-4"></div>
 
+                <!-- DEBUGGING -->
+                {% if request.user.is_staff %}
+                <div class="card mt-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">Debug Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <pre id="debugOutput" style="max-height: 500px; overflow: auto; background-color: #f8f9fa; padding: 15px; border-radius: 4px; font-size: 12px;">Waiting for debug data...</pre>
+                    </div>
+                </div>
+                {% endif %}
+
                 {% if progress %}
                 <div class="progress-stats mt-4">
                     <h5>Your Progress</h5>
@@ -199,6 +211,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const colorOptions = document.querySelectorAll('.color-option');
     const showReferenceToggle = document.getElementById('showReferenceToggle');
     const referenceContainer = document.getElementById('referenceContainer');
+    const debugOutput = document.getElementById('debugOutput');
+
+    // Log for debugging
+    console.log("DOM initialization started");
+    if (debugOutput) {
+        debugOutput.textContent = "Canvas initialized. Draw something and click 'Check Drawing'.";
+    }
 
     // Set default drawing settings
     ctx.strokeStyle = '#000000';
@@ -312,79 +331,137 @@ document.addEventListener('DOMContentLoaded', function() {
         referenceContainer.style.display = this.checked ? 'block' : 'none';
     });
 
-    // Check drawing
+    // MAIN CHECK DRAWING FUNCTION - improved for better image capture
     checkButton.addEventListener('click', function() {
-        // Get the canvas data
-        const imageData = canvas.toDataURL('image/png');
+        console.log("Check drawing button clicked");
 
-        // Send to server for evaluation
-        fetch('{% url "writing:check_drawing" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                glyph_name: '{{ glyph.name }}',
-                image_data: imageData
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            const feedbackDiv = document.getElementById('feedback');
+        if (debugOutput) {
+            debugOutput.textContent = "Processing your drawing...";
+        }
 
-            if (data.error) {
-                feedbackDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-                return;
+        // Preprocessing steps for better image quality
+        // First, get a copy of the canvas for preprocessing
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // Set the temp canvas to the same size
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+
+        // Copy the original canvas content
+        tempCtx.fillStyle = 'white';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.drawImage(canvas, 0, 0);
+
+        // Apply minor contrast enhancement to make lines clearer
+        // This helps with recognition by making the strokes more defined
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
+
+        // Simple contrast enhancement
+        for (let i = 0; i < data.length; i += 4) {
+            // Check if pixel is not white (drawing)
+            if (data[i] < 245 || data[i+1] < 245 || data[i+2] < 245) {
+                // Enhance contrast - make darker pixels even darker
+                data[i] = Math.max(0, data[i] - 30);     // R
+                data[i+1] = Math.max(0, data[i+1] - 30); // G
+                data[i+2] = Math.max(0, data[i+2] - 30); // B
             }
+        }
 
-            // Create feedback element
-            let alertClass = data.is_correct ? 'success' : 'warning';
-            let feedbackHTML = `
-                <div class="alert alert-${alertClass}">
-                    <h5>${data.is_correct ? 'Well done!' : 'Almost there!'}</h5>
-                    <p>${data.feedback}</p>
-                    <div class="mt-2">
-                        <div class="progress">
-                            <div class="progress-bar bg-${alertClass}"
-                                 role="progressbar"
-                                 style="width: ${data.similarity}%"
-                                 aria-valuenow="${data.similarity}"
-                                 aria-valuemin="0"
-                                 aria-valuemax="100">
-                                 ${data.similarity}%
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+        // Put enhanced image data back
+        tempCtx.putImageData(imageData, 0, 0);
 
-            feedbackDiv.innerHTML = feedbackHTML;
+        // Get the enhanced canvas data as PNG (best quality)
+        const enhancedImageData = tempCanvas.toDataURL('image/png', 1.0);
 
-            // Update progress stats if they exist
-            if (data.attempts !== undefined) {
-                const statsElements = document.querySelectorAll('.progress-stats .display-6');
-                if (statsElements.length >= 3) {
-                    statsElements[0].textContent = data.attempts;
-                    statsElements[1].textContent = data.accuracy + '%';
-                    statsElements[2].innerHTML = data.mastered ?
-                        '<span class="text-success">✓</span>' :
-                        '<span class="text-warning">↻</span>';
+        // Use XMLHttpRequest for better control
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '{% url "writing:check_drawing" %}', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                console.log("Response received, status:", xhr.status);
+
+                if (xhr.status === 200) {
+                    try {
+                        // Parse the JSON response
+                        const data = JSON.parse(xhr.responseText);
+                        console.log("Response data received:", Object.keys(data));
+
+                        // IMPORTANT: Update the debug output FIRST
+                        if (debugOutput) {
+                            debugOutput.textContent = JSON.stringify(data, null, 2);
+                        }
+
+                        // Update feedback display
+                        const feedbackDiv = document.getElementById('feedback');
+                        if (feedbackDiv) {
+                            let alertClass = data.is_correct ? 'success' : 'warning';
+                            feedbackDiv.innerHTML = `
+                                <div class="alert alert-${alertClass}">
+                                    <h5>${data.is_correct ? 'Well done!' : 'Almost there!'}</h5>
+                                    <p>${data.feedback}</p>
+                                    <div class="mt-2">
+                                        <div class="progress">
+                                            <div class="progress-bar bg-${alertClass}"
+                                                 role="progressbar"
+                                                 style="width: ${data.similarity}%"
+                                                 aria-valuenow="${data.similarity}"
+                                                 aria-valuemin="0"
+                                                 aria-valuemax="100">
+                                                 ${data.similarity}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        // Update progress stats
+                        const statsElements = document.querySelectorAll('.progress-stats .display-6');
+                        if (statsElements.length >= 3) {
+                            statsElements[0].textContent = data.attempts;
+                            statsElements[1].textContent = data.accuracy + '%';
+                            statsElements[2].innerHTML = data.mastered ?
+                                '<span class="text-success">✓</span>' :
+                                '<span class="text-warning">↻</span>';
+                        }
+
+                    } catch (e) {
+                        console.error("Error parsing response:", e);
+                        if (debugOutput) {
+                            debugOutput.textContent = "Error: " + e.message + "\n\nRaw response: " + xhr.responseText;
+                        }
+                    }
+                } else {
+                    console.error("Request failed, status:", xhr.status);
+                    if (debugOutput) {
+                        debugOutput.textContent = "Request failed with status " + xhr.status;
+                    }
                 }
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('feedback').innerHTML = `
-                <div class="alert alert-danger">
-                    <p>An error occurred while checking your drawing. Please try again.</p>
-                </div>
-            `;
-        });
+        };
+
+        // Send the request with the enhanced drawing data
+        try {
+            xhr.send(JSON.stringify({
+                glyph_name: '{{ glyph.name }}',
+                image_data: enhancedImageData
+            }));
+        } catch (e) {
+            console.error("Error sending request:", e);
+            if (debugOutput) {
+                debugOutput.textContent = "Error sending request: " + e.message;
+            }
+        }
     });
 
     // Initialize canvas on load
     initCanvas();
+    console.log("Canvas initialization complete");
 });
 </script>
 {% endblock %}

@@ -1,168 +1,198 @@
+import io
 from pathlib import Path
 
+import cairosvg
+import cv2
+import numpy as np
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
+from PIL import Image
 
 from apps.writing.models import Glyph
+from apps.writing.services import svg_service
 
 
 class Command(BaseCommand):
-    help = "Load sample Sitelen Pona glyphs for testing"
+    help = "Load Sitelen Pona glyphs from static SVG files"
 
     def handle(self, *args, **kwargs):
-        self.stdout.write(self.style.NOTICE("Loading sample Sitelen Pona glyphs..."))
+        self.stdout.write(
+            self.style.NOTICE("Loading Sitelen Pona glyphs from static files...")
+        )
 
-        # Check if we have a media directory
+        # Check media directories
         media_dir = Path(settings.MEDIA_ROOT)
         if not media_dir.exists():
             media_dir.mkdir(parents=True)
 
-        # Create the glyphs subdirectory if it doesn't exist
         glyphs_dir = media_dir / "glyphs"
         if not glyphs_dir.exists():
             glyphs_dir.mkdir(parents=True)
 
-        # Define some basic glyphs
-        basic_glyphs = [
-            {
-                "name": "toki",
+        reference_dir = glyphs_dir / "reference"
+        if not reference_dir.exists():
+            reference_dir.mkdir(parents=True)
+
+        # Source SVG directory in static files
+        svg_source_dir = Path(
+            settings.ML_MODELS_STORAGE.get(
+                "STATIC_GLYPHS_DIR",
+                Path(settings.BASE_DIR) / "static" / "images" / "glyphs",
+            )
+        )
+
+        # Check if source directory exists and contains files
+        if not svg_source_dir.exists():
+            self.stderr.write(
+                self.style.ERROR(
+                    f"Source SVG directory '{svg_source_dir}' does not exist"
+                )
+            )
+            return
+
+        # Find all SVG files
+        svg_files = list(svg_source_dir.glob("*.svg"))
+        if not svg_files:
+            self.stderr.write(
+                self.style.WARNING(f"No SVG files found in '{svg_source_dir}'")
+            )
+            return
+
+        self.stdout.write(self.style.NOTICE(f"Found {len(svg_files)} SVG files"))
+
+        # Define glyph metadata - expand as needed
+        glyph_metadata = {
+            "toki": {
                 "meaning": "language, communicate, talk, speech",
                 "difficulty": "beginner",
                 "category": "basic",
                 "example_sentence": "toki pona li pona",
-                "description": ("The glyph for 'toki' resembles a mouth talking."),
+                "description": "The glyph for 'toki' resembles a mouth talking.",
             },
-            {
-                "name": "pona",
+            "pona": {
                 "meaning": "good, simple, positive",
                 "difficulty": "beginner",
                 "category": "basic",
                 "example_sentence": "sina pona",
-                "description": (
-                    "The glyph for 'pona' has a simple design representing goodness."
-                ),
+                "description": "The glyph for 'pona' has a simple design representing goodness.",
             },
-            {
-                "name": "mi",
+            "mi": {
                 "meaning": "I, me, we, us",
                 "difficulty": "beginner",
                 "category": "basic",
                 "example_sentence": "mi moku",
-                "description": ("The glyph for 'mi' points to oneself."),
+                "description": "The glyph for 'mi' points to oneself.",
             },
-            {
-                "name": "sina",
+            "sina": {
                 "meaning": "you",
                 "difficulty": "beginner",
                 "category": "basic",
                 "example_sentence": "sina suli",
-                "description": ("The glyph for 'sina' points outward to someone else."),
+                "description": "The glyph for 'sina' points outward to someone else.",
             },
-            {
-                "name": "jan",
+            "jan": {
                 "meaning": "person, human, somebody",
                 "difficulty": "beginner",
                 "category": "basic",
                 "example_sentence": "jan li pona",
-                "description": (
-                    "The glyph for 'jan' resembles a simple figure of a person."
-                ),
+                "description": "The glyph for 'jan' resembles a simple figure of a person.",
             },
-            {
-                "name": "moku",
-                "meaning": "food, eat, drink",
-                "difficulty": "beginner",
-                "category": "basic",
-                "example_sentence": "mi moku",
-                "description": (
-                    "The glyph for 'moku' resembles a bowl or plate with food."
-                ),
-            },
-            {
-                "name": "li",
-                "meaning": "verb marker",
-                "difficulty": "intermediate",
-                "category": "grammar",
-                "example_sentence": "jan li moku",
-                "description": "The glyph for 'li' connects a subject to a verb.",
-            },
-            {
-                "name": "lape",
-                "meaning": "sleep, rest",
-                "difficulty": "intermediate",
-                "category": "basic",
-                "example_sentence": "mi lape",
-                "description": (
-                    "The glyph for 'lape' shows a resting or sleeping state."
-                ),
-            },
-            {
-                "name": "olin",
-                "meaning": "love, affection, compassion",
-                "difficulty": "intermediate",
-                "category": "basic",
-                "example_sentence": "mi olin e sina",
-                "description": (
-                    "The glyph for 'olin' represents emotional connection."
-                ),
-            },
-            {
-                "name": "tenpo",
-                "meaning": "time, duration, period",
-                "difficulty": "advanced",
-                "category": "basic",
-                "example_sentence": "tenpo ni la mi lape",
-                "description": (
-                    "The glyph for 'tenpo' represents the passing of time."
-                ),
-            },
-        ]
+            # Add more metadata for other glyphs as needed
+        }
 
-        # Create each glyph
-        for glyph_data in basic_glyphs:
-            name = glyph_data["name"]
-            # Check if glyph already exists
-            if Glyph.objects.filter(name=name).exists():
+        # Default metadata for unknown glyphs
+        default_metadata = {
+            "meaning": "Toki Pona word",
+            "difficulty": "intermediate",
+            "category": "basic",
+            "example_sentence": "",
+            "description": "Sitelen Pona glyph",
+        }
+
+        # Import and process each SVG file
+        processed_count = 0
+        for svg_file in svg_files:
+            glyph_name = svg_file.stem  # Get filename without extension
+
+            # Skip if glyph already exists (optional - can also update instead)
+            if Glyph.objects.filter(name=glyph_name).exists():
                 self.stdout.write(
-                    self.style.WARNING(f"Glyph '{name}' already exists, skipping...")
+                    self.style.WARNING(
+                        f"Glyph '{glyph_name}' already exists, skipping..."
+                    )
                 )
                 continue
 
-            # Create the glyph
-            glyph = Glyph(
-                name=name,
-                meaning=glyph_data["meaning"],
-                difficulty=glyph_data["difficulty"],
-                category=glyph_data["category"],
-                example_sentence=glyph_data["example_sentence"],
-                description=glyph_data["description"],
-            )
-
-            # Save first to create the model instance
-            glyph.save()
-
-            # Create a simple SVG placeholder
-            svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg"
-                width="100" height="100" viewBox="0 0 100 100">
-                <rect width="98" height="98" x="1" y="1"
-                fill="white" stroke="black" stroke-width="2"/>
-                <text x="50" y="50" font-family="Arial" font-size="20"
-                text-anchor="middle" dominant-baseline="middle">{name}</text>
-            </svg>"""
-
             try:
-                # Use ContentFile instead of File
-                content_file = ContentFile(svg_content.encode("utf-8"))
+                # Read the SVG content
+                with open(svg_file, "r", encoding="utf-8") as f:
+                    svg_content = f.read()
 
-                # Save the content to the model instance
-                glyph.image.save(f"{name}.svg", content_file, save=True)
+                # Upload SVG to service (makes it available via API/templates)
+                svg_service.upload_svg(glyph_name, svg_content)
 
-                self.stdout.write(self.style.SUCCESS(f"Created glyph: {glyph.name}"))
-            except Exception as e:
-                self.stdout.write(
-                    self.style.ERROR(f"Failed to create SVG for {name}: {str(e)}")
+                # Convert SVG to PNG for ML model
+                png_data = cairosvg.svg2png(
+                    bytestring=svg_content.encode("utf-8"),
+                    output_width=100,
+                    output_height=100,
+                    background_color="white",
                 )
-                # Keep the glyph record even if we failed to create the image
 
-        self.stdout.write(self.style.SUCCESS("Successfully loaded sample glyphs!"))
+                # Convert to numpy array for processing
+                image = Image.open(io.BytesIO(png_data))
+                image_array = np.array(image)
+
+                # Convert to grayscale if needed
+                if len(image_array.shape) == 3:
+                    image_array = cv2.cvtColor(image_array, cv2.COLOR_RGB2GRAY)
+
+                # Threshold to create binary image
+                _, binary = cv2.threshold(image_array, 127, 255, cv2.THRESH_BINARY)
+
+                # Save processed image to bytes
+                processed_img = cv2.imencode(".png", binary)[1].tobytes()
+
+                # Get glyph metadata (or use defaults)
+                metadata = glyph_metadata.get(glyph_name, default_metadata)
+
+                # Create the glyph record
+                glyph = Glyph(
+                    name=glyph_name,
+                    meaning=metadata["meaning"],
+                    difficulty=metadata["difficulty"],
+                    category=metadata["category"],
+                    example_sentence=metadata["example_sentence"],
+                    description=metadata["description"],
+                )
+
+                # Save to create the model instance
+                glyph.save()
+
+                # Add both the processed PNG and original SVG to the model
+                # For ML recognition
+                glyph.image.save(
+                    f"{glyph_name}.png", ContentFile(processed_img), save=False
+                )
+
+                # For reference display
+                glyph.reference_image.save(
+                    f"{glyph_name}.svg",
+                    ContentFile(svg_content.encode("utf-8")),
+                    save=True,
+                )
+
+                processed_count += 1
+                self.stdout.write(self.style.SUCCESS(f"Processed glyph: {glyph_name}"))
+
+            except Exception as e:
+                self.stderr.write(
+                    self.style.ERROR(f"Error processing {glyph_name}: {e}")
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Successfully processed {processed_count} out of {len(svg_files)} glyphs"
+            )
+        )
