@@ -2,8 +2,10 @@
 Production settings for Toki Pona AI project.
 """
 
-from .base import *  # noqa: F403
-from .base import ML_MODELS_STORAGE, STORAGES, env
+import os
+
+from .base import *  # noqa: F403, F405
+from .base import BASE_DIR, ML_MODELS_STORAGE, STORAGES, env
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY")
@@ -43,9 +45,15 @@ STORAGES = {
 }
 
 # ML models configuration for production (S3 storage)
-ML_MODELS_STORAGE["USE_S3"] = True
-ML_MODELS_STORAGE["S3_MODELS_BUCKET_NAME"] = AWS_STORAGE_BUCKET_NAME
-ML_MODELS_STORAGE["S3_MODELS_KEY_PREFIX"] = "ml_models/"
+ML_MODELS_STORAGE.update(
+    {
+        "USE_S3": True,
+        "S3_MODELS_BUCKET_NAME": AWS_STORAGE_BUCKET_NAME,
+        "S3_MODELS_KEY_PREFIX": "ml_models/",
+        # Static paths for glyphs (same as in development)
+        "STATIC_GLYPHS_DIR": os.path.join(BASE_DIR, "static", "images", "glyphs"),
+    }
+)
 
 # Configure loggers for production
 LOGGING = {

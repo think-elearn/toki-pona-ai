@@ -35,7 +35,12 @@ class Command(BaseCommand):
             reference_dir.mkdir(parents=True)
 
         # Source SVG directory in static files
-        svg_source_dir = Path(settings.BASE_DIR) / "static" / "images" / "glyphs"
+        svg_source_dir = Path(
+            settings.ML_MODELS_STORAGE.get(
+                "STATIC_GLYPHS_DIR",
+                Path(settings.BASE_DIR) / "static" / "images" / "glyphs",
+            )
+        )
 
         # Check if source directory exists and contains files
         if not svg_source_dir.exists():
