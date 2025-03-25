@@ -1,7 +1,6 @@
 import json
 import logging
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -70,6 +69,7 @@ def practice(request, glyph_name):
         "progress": progress,
         "recent_accuracy": progress.accuracy,
         "svg_url": svg_url,
+        "debug": request.user.is_staff,  # Enable debugging for staff users
     }
 
     return render(request, "writing/practice.html", context)
@@ -87,15 +87,41 @@ def check_drawing(request):
             # Get the glyph from database
             glyph = get_object_or_404(Glyph, name=glyph_name)
 
-            # Call the character recognition service
-            character, similarity, debug_info = character_recognition.recognize_base64(
-                image_data,
-                threshold=0.7,  # Configurable threshold
+            # Call the character recognition service with lower threshold for better results
+            character, similarity, recognition_debug_info = (
+                character_recognition.recognize_base64(
+                    image_data,
+                    threshold=0.6,  # Lower threshold for more lenient matching
+                )
             )
 
+            # Apply a slight boost to similarity score (empirically tuned)
+            # This helps account for the inherent differences between user drawings and templates
+            adjusted_similarity = min(
+                1.0, similarity * 1.15
+            )  # 15% boost, capped at 1.0
+
             # Round similarity score to percentage
-            similarity_percentage = round(similarity * 100)
-            is_correct = similarity >= 0.7 and character == glyph_name
+            similarity_percentage = round(adjusted_similarity * 100)
+            is_correct = adjusted_similarity >= 0.65 and character == glyph_name
+
+            # Comprehensive debugging info
+            debug_info = {
+                "glyph_name": glyph_name,
+                "glyph_id": glyph.id,
+                "has_image": bool(glyph.image),
+                "image_path": glyph.image.path if glyph.image else None,
+                "image_url": glyph.image.url if glyph.image else None,
+                "recognition": {
+                    "raw_similarity": round(similarity * 100),
+                    "adjusted_similarity": similarity_percentage,
+                    "raw_threshold": 0.6,
+                    "effective_threshold": 0.65,
+                    "recognized_as": character,
+                    "is_match": character == glyph_name,
+                },
+                "scores": recognition_debug_info.get("scores", {}),
+            }
 
             # Update user progress
             progress, created = GlyphPracticeProgress.objects.get_or_create(
@@ -113,35 +139,54 @@ def check_drawing(request):
 
             progress.save()
 
-            # Generate feedback based on score
-            if similarity >= 0.90:
+            # Generate feedback based on adjusted score with more encouraging feedback
+            if adjusted_similarity >= 0.85:
                 feedback = "Excellent! Your glyph looks great."
-            elif similarity >= 0.80:
-                feedback = "Good job! Your glyph is recognizable."
-            elif similarity >= 0.70:
+            elif adjusted_similarity >= 0.75:
+                feedback = "Good job! Your glyph is clearly recognizable."
+            elif adjusted_similarity >= 0.65:
+                feedback = "Well done! Keep practicing to perfect your strokes."
+            elif adjusted_similarity >= 0.55:
                 feedback = "Getting better. Try to make your strokes more precise."
+            elif adjusted_similarity >= 0.45:
+                feedback = "Not bad. Keep practicing to improve your accuracy."
             else:
                 feedback = "Keep practicing. Focus on the overall shape of the glyph."
 
-            # Return results as JSON
+            # Return results
             return JsonResponse(
                 {
-                    "is_correct": is_correct,
+                    "is_correct": bool(is_correct),
                     "similarity": similarity_percentage,
-                    "feedback": feedback,
-                    "debug_info": debug_info if settings.DEBUG else {},
-                    "attempts": progress.attempts,
-                    "successful_attempts": progress.successful_attempts,
-                    "accuracy": progress.accuracy,
-                    "mastered": progress.mastered,
+                    "feedback": str(feedback),
+                    "debug_info": debug_info,
+                    "attempts": int(progress.attempts),
+                    "successful_attempts": int(progress.successful_attempts),
+                    "accuracy": int(progress.accuracy),
+                    "mastered": bool(progress.mastered),
                 }
             )
 
         except Exception as e:
-            logger.error(f"Error in check_drawing: {str(e)}")
-            return JsonResponse({"error": str(e)}, status=400)
+            import traceback
 
-    return JsonResponse({"error": "Invalid request"}, status=400)
+            error_traceback = traceback.format_exc()
+
+            return JsonResponse(
+                {
+                    "error": str(e),
+                    "traceback": error_traceback,
+                    "is_correct": False,
+                    "similarity": 0,
+                    "debug_info": {"error": str(e), "traceback": error_traceback},
+                    "attempts": 0,
+                    "successful_attempts": 0,
+                    "accuracy": 0,
+                    "mastered": False,
+                }
+            )
+
+    return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
 @login_required

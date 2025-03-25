@@ -23,6 +23,7 @@ except ImportError:
     mp = None
 
 from apps.writing.services.ml_storage import model_storage
+from apps.writing.services.templates import template_service
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class CharacterRecognitionService:
         self.templates = {}
         self.embeddings = {}
         self.initialized = False
+        self.all_scores = {}
 
     def initialize(self):
         """Initialize the character recognition service with the MobileNet model."""
@@ -74,19 +76,57 @@ class CharacterRecognitionService:
     def load_templates(self):
         """
         Load and process template images.
-
-        In production, templates will be stored in S3.
-        In development, they will be stored locally.
         """
-        # TODO: Implement template loading from S3 or local storage
-        # For now, we'll use a dummy implementation
-        self.templates = {
-            "a": {"original": None, "processed": None},
-        }
-        self.embeddings = {
-            "a": np.ones(1024),  # Dummy embedding vector
-        }
-        logger.info(f"Loaded {len(self.templates)} template images")
+        try:
+            # Get all templates from the template service
+            template_list = template_service.get_template_list()
+
+            if not template_list:
+                logger.warning(
+                    "No templates found. Character recognition will not work properly."
+                )
+                return
+
+            logger.info(f"Loading {len(template_list)} templates")
+
+            # Process each template
+            for template_name in template_list:
+                # Get template image
+                original_image = template_service.get_template_image(template_name)
+
+                if original_image is None:
+                    logger.warning(f"Template image for '{template_name}' not found")
+                    continue
+
+                # Convert PIL Image to numpy array if needed
+                if isinstance(original_image, Image.Image):
+                    original_image = np.array(original_image)
+
+                # Preprocess the image
+                processed, _ = self.preprocess_image(original_image)
+
+                # Store images for display
+                self.templates[template_name] = {
+                    "original": original_image,
+                    "processed": (processed * 255).astype(np.uint8),
+                }
+
+                # Convert to uint8 for MediaPipe (it doesn't like float input)
+                mp_input = (processed * 255).astype(np.uint8)
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=mp_input)
+
+                # Get and store embedding values
+                embedding_result = self.embedder.embed(mp_image)
+                self.embeddings[template_name] = embedding_result.embeddings[
+                    0
+                ].embedding
+
+            logger.info(
+                f"Successfully loaded {len(self.embeddings)} template embeddings"
+            )
+
+        except Exception as e:
+            logger.error(f"Error loading templates: {str(e)}")
 
     def preprocess_image(self, image) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
         """Preprocess image for MediaPipe."""
@@ -111,10 +151,51 @@ class CharacterRecognitionService:
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
             debug_steps["rgb_converted"] = image.copy()
 
+        # Find bounding box of non-white pixels to crop the drawing tightly
+        # This helps with alignment and improves recognition
+        if image.shape[2] == 3:  # RGB image
+            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        else:
+            gray = image
+
+        # Threshold to find ink pixels
+        _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+        debug_steps["thresholded"] = thresh.copy()
+
+        # Find contours
+        contours, _ = cv2.findContours(
+            thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+
+        # If no contours are found, use the entire image
+        if not contours:
+            x, y, w, h = 0, 0, image.shape[1], image.shape[0]
+        else:
+            # Combine all contours to get the bounding box of the drawing
+            all_points = np.concatenate(list(contours))
+            x, y, w, h = cv2.boundingRect(all_points)
+
+            # Add some padding around the bounding box
+            padding = int(min(w, h) * 0.1)  # 10% padding
+            x = max(0, x - padding)
+            y = max(0, y - padding)
+            w = min(image.shape[1] - x, w + padding * 2)
+            h = min(image.shape[0] - y, h + padding * 2)
+
+        # Crop the image to the bounding box
+        cropped = image[y : y + h, x : x + w]
+        debug_steps["cropped"] = cropped.copy()
+
         # Resize while maintaining aspect ratio
         target_size = (224, 224)  # MobileNet default size
-        h, w = image.shape[:2]
-        aspect = w / h
+
+        # Slightly adjust the aspect ratio to better match typical glyph proportions
+        # This helps when user drawings have different proportions from templates
+        cropped_h, cropped_w = cropped.shape[:2]
+        aspect = cropped_w / cropped_h
+
+        # Ensure the aspect ratio is not too extreme
+        aspect = min(max(aspect, 0.7), 1.3)
 
         if aspect > 1:
             new_w = target_size[0]
@@ -123,10 +204,16 @@ class CharacterRecognitionService:
             new_h = target_size[1]
             new_w = int(new_h * aspect)
 
-        resized = cv2.resize(image, (new_w, new_h))
+        # Use INTER_AREA for downscaling or INTER_CUBIC for upscaling
+        if cropped_w > new_w or cropped_h > new_h:
+            interpolation = cv2.INTER_AREA
+        else:
+            interpolation = cv2.INTER_CUBIC
+
+        resized = cv2.resize(cropped, (new_w, new_h), interpolation=interpolation)
         debug_steps["aspect_preserved"] = resized.copy()
 
-        # Create white canvas of target size (since we're dealing with black text)
+        # Create white canvas of target size
         canvas = np.ones((target_size[1], target_size[0], 3), dtype=np.uint8) * 255
 
         # Center the image on the canvas
