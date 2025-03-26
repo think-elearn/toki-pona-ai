@@ -77,7 +77,7 @@ sounddevice==0.5.1
 sqlparse==0.5.3
 tinycss2==1.4.0
 typing-extensions==4.12.2 ; python_full_version < '3.13'
-tzdata==2025.1
+tzdata==2025.2
 urllib3==2.3.0
 virtualenv==20.29.3
 webencodings==0.5.1
