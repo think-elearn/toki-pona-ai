@@ -47,7 +47,7 @@ mediapipe==0.10.18
 ml-dtypes==0.4.1 ; python_full_version >= '3.13'
 ml-dtypes==0.5.1 ; python_full_version < '3.13'
 nodeenv==1.9.1
-numpy==1.26.4
+numpy==2.2.4
 opencv-contrib-python==4.11.0.86
 opencv-python==4.11.0.86
 opt-einsum==3.4.0
