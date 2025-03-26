@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -75,35 +74,40 @@ class Command(BaseCommand):
             },
         ]
 
-        # Process sample VTT file from the project files
-        vtt_source_path = Path("listening-app/utils/captions_lesson_01.vtt")
-        if vtt_source_path.exists():
-            with open(vtt_source_path, "r", encoding="utf-8") as f:
-                full_lesson_transcript = f.read()
+        # No need to look for external VTT files, we'll just use the sample data
+        # Add a full lesson example with typical captions format
+        sample_transcript = """WEBVTT
 
-            # Add a full lesson example
-            sample_phrases.append(
-                {
-                    "title": "First Lesson: What is Toki Pona?",
-                    "text": (
-                        "toki! mi jan Misali. kulupu ni pi sitelen tawa la "
-                        "sina ken kama sona e toki pona."
+00:00:00.000 --> 00:00:05.000
+toki! mi jan Misali. kulupu ni pi sitelen tawa la sina ken kama sona e toki pona.
+
+00:00:05.100 --> 00:00:10.000
+toki pona li toki lili.
+
+00:00:10.100 --> 00:00:15.000
+ona li jo e nimi lili.
+"""
+
+        # Add a full lesson example
+        sample_phrases.append(
+            {
+                "title": "First Lesson: What is Toki Pona?",
+                "text": (
+                    "toki! mi jan Misali. kulupu ni pi sitelen tawa la "
+                    "sina ken kama sona e toki pona."
+                ),
+                "translations": [
+                    (
+                        "Hello! I am Misali. In this video series, "
+                        "you can learn Toki Pona."
                     ),
-                    "translations": [
-                        (
-                            "Hello! I am Misali. In this video series, "
-                            "you can learn Toki Pona."
-                        ),
-                        (
-                            "Hi! I'm Misali. With this video group, "
-                            "you can learn Toki Pona."
-                        ),
-                    ],
-                    "difficulty": TokiPonaPhrase.DifficultyLevel.BEGINNER,
-                    "transcript": full_lesson_transcript,
-                    "youtube_video_id": "2EZihKCB9iw",
-                }
-            )
+                    ("Hi! I'm Misali. With this video group, you can learn Toki Pona."),
+                ],
+                "difficulty": TokiPonaPhrase.DifficultyLevel.BEGINNER,
+                "transcript": sample_transcript,
+                "youtube_video_id": "2EZihKCB9iw",
+            }
+        )
 
         # Create the phrases
         for phrase_data in sample_phrases:

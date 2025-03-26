@@ -43,11 +43,15 @@ docker-compose -f compose.dev.yaml up --build
 This will:
 
 - Build the Docker image with all required dependencies
-- Start PostgreSQL database
+- Start PostgreSQL database (with health check to ensure it's ready)
 - Run Django migrations
 - Create an admin user automatically
-- Load sample data from the static SVG files
+- Load data for all apps (glyphs, signs, phrases)
+- Download required ML models
+- Create all necessary media directories
 - Start the development server
+
+The setup process is fully automated and will ensure the application is 100% functional once started.
 
 ### Step 3: Access the application
 
@@ -106,16 +110,20 @@ DEBUG=True" > .env
 python manage.py migrate
 ```
 
-### Step 7: Load sample data
+### Step 7: Load data
 
 ```bash
 # Create an admin user
 python manage.py createsuperuser
 
-# Load sample glyphs from static SVG files
+# Load glyphs from static SVG files
 # This creates glyph records in the database, generates PNG templates for recognition,
 # and automatically sets up all necessary directories in the media folder
-python manage.py load_sample_glyphs
+python manage.py load_glyphs
+
+# Load sample signs and phrases
+python manage.py load_sample_signs
+python manage.py load_sample_phrases
 ```
 
 ### Step 8: Run the development server
@@ -174,10 +182,10 @@ If you encounter database connection issues:
 
 If you encounter issues with the writing recognition feature:
 
-1. Make sure you've run `python manage.py load_sample_glyphs` to create the necessary templates
+1. Make sure you've run `python manage.py load_glyphs` to create the necessary templates
 2. Check that the MediaPipe model was downloaded successfully to `media/ml_models/mobilenet_v3_small.tflite`
 3. Verify that template images exist in `media/templates/`
-4. If you see "No templates found" in the logs, re-run the `load_sample_glyphs` command
+4. If you see "No templates found" in the logs, re-run the `load_glyphs` command
 5. Check browser console for any JavaScript errors
 
 ## Next Steps
