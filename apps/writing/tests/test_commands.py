@@ -12,7 +12,7 @@ class CommandsTestCase(TestCase):
     @pytest.mark.django_db
     @patch("cairosvg.svg2png")
     def test_load_glyphs(self, mock_svg2png):
-        """Test that the load_glyphs command creates glyph records from static SVGs"""
+        """Test that the load_glyphs command creates or updates glyph records from static SVGs"""
         # Set up test SVGs
         pytest.importorskip("pytest_django")
 
@@ -54,7 +54,7 @@ class CommandsTestCase(TestCase):
         # Get the list of created glyphs
         created_glyphs = list(Glyph.objects.values_list("name", flat=True))
 
-        # Try running the command again (should skip existing glyphs)
+        # Try running the command again (should update existing glyphs)
         out = StringIO()
         with patch(
             "apps.writing.management.commands.load_glyphs.Path.glob"
@@ -68,4 +68,7 @@ class CommandsTestCase(TestCase):
 
         output = out.getvalue()
         if created_glyphs:
-            self.assertIn("already exists, skipping", output)
+            for glyph_name in created_glyphs:
+                self.assertIn(
+                    f"Glyph '{glyph_name}' already exists, updating...", output
+                )
