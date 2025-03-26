@@ -1,9 +1,12 @@
 volumes:
   postgres_data:
+  ml_models_data:
+  media_data:
 
 services:
   db:
     image: postgres:15
+    platform: linux/arm64  # Specify platform to match your host
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
@@ -12,27 +15,35 @@ services:
       - POSTGRES_DB=toki_pona_db
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   web:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: >
-      bash -c "python manage.py migrate &&
-               python manage.py load_sample_glyphs &&
-               python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/app
+      # Use named volumes for media data to persist between container rebuilds
+      - media_data:/app/media
+      - ml_models_data:/app/media/ml_models
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/toki_pona_db
       - DJANGO_SETTINGS_MODULE=config.settings.development
       - DEBUG=True
       - SECRET_KEY=dev-key-replace-in-production
       - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_PASSWORD=admin
+      - DJANGO_SUPERUSER_EMAIL=admin@example.com
 
   redis:
     image: redis:6
