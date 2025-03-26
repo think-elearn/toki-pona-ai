@@ -5,14 +5,22 @@ Test settings for Toki Pona AI project.
 import os
 import tempfile
 
-from .base import *  # noqa
-from .base import ML_MODELS_STORAGE, STORAGES, TEMPLATES
+# Override environment variables before importing base settings
+# IMPORTANT: DO NOT REORDER THESE IMPORTS - they must happen before importing base settings
+import environ  # noqa: E402
+
+env = environ.Env()
+environ.Env.read_env()
+
+# Set TEST_SECRET_KEY environment variable
+os.environ["SECRET_KEY"] = "django-insecure-test-key-not-for-production"
+
+# Now import base settings
+from .base import *  # noqa: E402, F403
+from .base import ML_MODELS_STORAGE, STORAGES, TEMPLATES  # noqa: E402
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
-
-# Set a static secret key for tests
-SECRET_KEY = "django-insecure-test-key-not-for-production"
 
 # Use in-memory SQLite for tests
 DATABASES = {

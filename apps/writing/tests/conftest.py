@@ -16,11 +16,24 @@ from apps.writing.models import Glyph
 def temp_model_dir(monkeypatch, tmp_path):
     """Create temporary model directory for testing."""
     original_dir = settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"]
+    original_media_root = getattr(settings, "MEDIA_ROOT", None)
+
+    # Create media subdirectory in the temp path
+    ml_models_dir = tmp_path / "ml_models"
+    ml_models_dir.mkdir(exist_ok=True)
+
+    # Set MEDIA_ROOT to the temp_path
+    settings.MEDIA_ROOT = str(tmp_path)
+
     # Since ML_MODELS_STORAGE is a dict, we need to modify it directly
-    settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"] = str(tmp_path)
+    settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"] = str(ml_models_dir)
+
     yield tmp_path
+
     # Restore original settings
     settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"] = original_dir
+    if original_media_root is not None:
+        settings.MEDIA_ROOT = original_media_root
 
 
 @pytest.fixture

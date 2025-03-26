@@ -47,6 +47,11 @@ dev = [
 minversion = "6.0"
 python_files = "tests.py test_*.py *_tests.py"
 addopts = "--cov=. --cov-report=term --ds=config.settings.test --reuse-db --import-mode=importlib"
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_classes = "Test* *Tests"
+python_functions = "test_*"
+testpaths = ["apps"]
+filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]
 target-version = "py312"
@@ -65,3 +70,10 @@ ignore = [
     "E203",  # whitespace before ':'
     "E501",  # line too long
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore isort rule (I) for the test settings file to preserve import order
+"config/settings/test.py" = ["I"]

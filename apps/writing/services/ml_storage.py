@@ -31,7 +31,14 @@ class ModelStorageService:
     def __init__(self):
         """Initialize the model storage service."""
         self.use_s3 = settings.ML_MODELS_STORAGE["USE_S3"]
-        self.local_models_dir = settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"]
+
+        # Always prefer the development setting (MEDIA_ROOT) for local storage
+        if hasattr(settings, "MEDIA_ROOT"):
+            self.local_models_dir = os.path.join(settings.MEDIA_ROOT, "ml_models")
+        else:
+            # Fallback to the setting in base.py
+            self.local_models_dir = settings.ML_MODELS_STORAGE["LOCAL_MODELS_DIR"]
+
         self.s3_bucket = settings.ML_MODELS_STORAGE["S3_MODELS_BUCKET_NAME"]
         self.s3_prefix = settings.ML_MODELS_STORAGE["S3_MODELS_KEY_PREFIX"]
         self.mobilenet_path = settings.ML_MODELS_STORAGE["MOBILENET_MODEL_PATH"]
@@ -39,6 +46,7 @@ class ModelStorageService:
 
         # Ensure local models directory exists if using local storage
         if not self.use_s3:
+            logger.info(f"Creating models directory at {self.local_models_dir}")
             os.makedirs(self.local_models_dir, exist_ok=True)
 
     def get_mobilenet_model_path(self):

@@ -128,7 +128,8 @@ STORAGES = {
 # Model storage configuration - base settings that will be overridden
 ML_MODELS_STORAGE = {
     "USE_S3": False,
-    "LOCAL_MODELS_DIR": BASE_DIR / "ml_models",
+    # Using a string path to avoid unnecessary directory creation at import time
+    "LOCAL_MODELS_DIR": str(BASE_DIR / "media" / "ml_models"),
     "S3_MODELS_BUCKET_NAME": env("AWS_STORAGE_BUCKET_NAME", default=""),
     "S3_MODELS_KEY_PREFIX": "ml_models/",
     "MOBILENET_MODEL_PATH": "mobilenet_v3_small.tflite",
