@@ -610,6 +610,7 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/36/8f/cafdf24170084de897ffe2a030241c2ba72d12eede85b940a81a94cab156/jaxlib-0.5.3-cp313-cp313-manylinux2014_aarch64.whl", hash = "sha256:e904b92dedfbc7e545725a8d7676987030ae9c069001d94701bc109c6dab4100", size = 95765995 },
     { url = "https://files.pythonhosted.org/packages/86/c7/fc0755ebd999c7c66ac4203d99f958d5ffc0a34eb270f57932ca0213bb54/jaxlib-0.5.3-cp313-cp313-manylinux2014_x86_64.whl", hash = "sha256:bb7593cb7fffcb13963f22fa5229ed960b8fb4ae5ec3b0820048cbd67f1e8e31", size = 105130796 },
     { url = "https://files.pythonhosted.org/packages/83/98/e32da21a490dc408d172ba246d6c47428482fe50d771c3f813e5fc063781/jaxlib-0.5.3-cp313-cp313-win_amd64.whl", hash = "sha256:8019f73a10b1290f988dd3768c684f3a8a147239091c3b790ce7e47e3bbc00bd", size = 65792205 },
+    { url = "https://files.pythonhosted.org/packages/88/c6/0d69ed0d408c811959a471563afa99baecacdc56ed1799002e309520b565/jaxlib-0.5.3-cp313-cp313t-manylinux2014_x86_64.whl", hash = "sha256:4c9a9d4cda091a3ef068ace8379fff9e98eea2fc51dbdd7c3386144a1bdf715d", size = 105318736 },
 ]
 
 [[package]]
@@ -711,7 +712,7 @@ wheels = [
 
 [[package]]
 name = "mediapipe"
-version = "0.10.21"
+version = "0.10.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -727,10 +728,11 @@ dependencies = [
     { name = "sounddevice" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/df/b1912b0d4e88c70a969258b201737c92ea268a90650c470ee842833a6690/mediapipe-0.10.21-cp312-cp312-macosx_11_0_universal2.whl", hash = "sha256:a65508f8c0e28a73f519c8a717f95949b9d5b2fb3bf4a632b181cdb71224d62e", size = 49176855 },
-    { url = "https://files.pythonhosted.org/packages/89/34/f490f2e1614c021679fe757b08fdedd6100fd18f21111532af8864d006fe/mediapipe-0.10.21-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:96bf0dafa9851c74b1f930090193f23c257ccf4bb1bdebbd2ca3a02397011c0e", size = 49080132 },
-    { url = "https://files.pythonhosted.org/packages/9f/99/5da7ae7f7e25847383bc2fe5a9adc7ce150dd371682f486c0666b407cad7/mediapipe-0.10.21-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:956eb1ebc275c629e61b085b2cab89c3a5b9e93bad1bb107348d98dafb5a4bb5", size = 35627340 },
-    { url = "https://files.pythonhosted.org/packages/b7/79/b77808f8195f229ef0c15875540dfdd36724748a4b3de53d993f23336839/mediapipe-0.10.21-cp312-cp312-win_amd64.whl", hash = "sha256:d07b5e69308411161286ea4e48be2ea3e9ab62745143fcb0cb4acced0517e341", size = 50967082 },
+    { url = "https://files.pythonhosted.org/packages/67/95/30e3aa1d00609c01435512aeddfc2eda694a24f8ff45c287a61f45fb6f3c/mediapipe-0.10.18-cp312-cp312-macosx_11_0_universal2.whl", hash = "sha256:95b6d067ae0b46e7a2b9b549f0ad6d3187ad86c63c77d3b8c7314a9a7ef5e2c8", size = 49117104 },
+    { url = "https://files.pythonhosted.org/packages/66/ee/a658d7a2c798828ba7a54acebd341b6d02623f9f0a2dc09c560a1a72dbb1/mediapipe-0.10.18-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:b790153b170c30c1167c4cb831e7f7f8ef43d3b5887775e0ba70d4dfe856119d", size = 49029485 },
+    { url = "https://files.pythonhosted.org/packages/a8/f2/c8f62565abc93b9ac6a9936856d3c3c144c7f7896ef3d02bfbfad2ab6ee7/mediapipe-0.10.18-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:09cbf7dc1f9a2deeaaac687e5f982836623def4cbd3e827d95f86f42450d2dd1", size = 33093793 },
+    { url = "https://files.pythonhosted.org/packages/e2/41/1a28b2d89238fe3aa011af3ea13897eccc6b89e4a9002045cd3f2af86b3d/mediapipe-0.10.18-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:edbabfb9728dc1fcd93fea47abece12d43300530a1d4261e257f6bd4e3be09d1", size = 36121898 },
+    { url = "https://files.pythonhosted.org/packages/f3/0b/92b29c7d829ce7a69575200bee7d0d0843fe52e84c227a51d17a2223b851/mediapipe-0.10.18-cp312-cp312-win_amd64.whl", hash = "sha256:e2b85876587887d3eee6664dda8a54825d48a73fe8bf6df05c7f10d44e950a43", size = 50889291 },
 ]
 
 [[package]]
@@ -1278,7 +1280,7 @@ requires-dist = [
     { name = "django-storages", extras = ["s3"], specifier = ">=1.14.5" },
     { name = "django-widget-tweaks", specifier = ">=1.5.0" },
     { name = "gunicorn", specifier = ">=23.0.0" },
-    { name = "mediapipe", specifier = ">=0.10.21" },
+    { name = "mediapipe", specifier = "==0.10.18" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "opencv-python", specifier = ">=4.11.0.86" },
     { name = "pillow", specifier = ">=11.1.0" },
