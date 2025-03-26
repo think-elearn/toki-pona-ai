@@ -4,6 +4,9 @@ Production settings for Toki Pona AI project.
 
 import os
 
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
 from .base import *  # noqa: F403, F405
 from .base import BASE_DIR, ML_MODELS_STORAGE, STORAGES, env
 
@@ -97,3 +100,20 @@ CACHES = {
         "LOCATION": env("REDIS_URL"),
     }
 }
+
+# Sentry configuration
+SENTRY_DSN = env("SENTRY_DSN")
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", default="production")
+
+# Configure Sentry SDK
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    environment=SENTRY_ENVIRONMENT,
+    integrations=[
+        DjangoIntegration(
+            transaction_style="function_name",
+        )
+    ],
+    sample_rate=1.0,
+    send_default_pii=True,
+)

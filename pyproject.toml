@@ -28,6 +28,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "redis[hiredis]>=5.2.1",
     "requests>=2.32.3",
+    "sentry-sdk[django]>=2.24.1",
     "whitenoise>=6.9.0",
 ]
 
