@@ -11,8 +11,8 @@ from apps.writing.models import Glyph
 class CommandsTestCase(TestCase):
     @pytest.mark.django_db
     @patch("cairosvg.svg2png")
-    def test_load_sample_glyphs(self, mock_svg2png):
-        """Test that the load_sample_glyphs command creates glyph records from static SVGs"""
+    def test_load_glyphs(self, mock_svg2png):
+        """Test that the load_glyphs command creates glyph records from static SVGs"""
         # Set up test SVGs
         pytest.importorskip("pytest_django")
 
@@ -25,7 +25,7 @@ class CommandsTestCase(TestCase):
 
         # Mock the static SVG files detection
         with patch(
-            "apps.writing.management.commands.load_sample_glyphs.Path.glob"
+            "apps.writing.management.commands.load_glyphs.Path.glob"
         ) as mock_glob:
             # Simulate finding SVG files
             mock_files = [
@@ -42,7 +42,7 @@ class CommandsTestCase(TestCase):
                 )
 
                 # Call the command
-                call_command("load_sample_glyphs", stdout=out)
+                call_command("load_glyphs", stdout=out)
 
         # Check command output
         output = out.getvalue()
@@ -57,14 +57,14 @@ class CommandsTestCase(TestCase):
         # Try running the command again (should skip existing glyphs)
         out = StringIO()
         with patch(
-            "apps.writing.management.commands.load_sample_glyphs.Path.glob"
+            "apps.writing.management.commands.load_glyphs.Path.glob"
         ) as mock_glob:
             mock_glob.return_value = mock_files
             with patch("builtins.open", create=True) as mock_open:
                 mock_open.return_value.__enter__.return_value.read.return_value = (
                     "<svg></svg>"
                 )
-                call_command("load_sample_glyphs", stdout=out)
+                call_command("load_glyphs", stdout=out)
 
         output = out.getvalue()
         if created_glyphs:
