@@ -166,18 +166,22 @@ class Command(BaseCommand):
         for svg_file in svg_files:
             glyph_name = svg_file.stem  # Get filename without extension
 
-            # Skip if glyph already exists (optional - can also update instead)
-            if Glyph.objects.filter(name=glyph_name).exists():
+            # Check if glyph already exists
+            existing_glyph = Glyph.objects.filter(name=glyph_name).first()
+            if existing_glyph:
                 self.stdout.write(
                     self.style.WARNING(
-                        f"Glyph '{glyph_name}' already exists, skipping..."
+                        f"Glyph '{glyph_name}' already exists, updating..."
                     )
                 )
-                continue
 
             try:
                 processed = self._process_single_svg(
-                    svg_file, glyph_name, glyph_metadata, default_metadata
+                    svg_file,
+                    glyph_name,
+                    glyph_metadata,
+                    default_metadata,
+                    existing_glyph,
                 )
                 if processed:
                     processed_count += 1
@@ -194,7 +198,12 @@ class Command(BaseCommand):
         )
 
     def _process_single_svg(
-        self, svg_file, glyph_name, glyph_metadata, default_metadata
+        self,
+        svg_file,
+        glyph_name,
+        glyph_metadata,
+        default_metadata,
+        existing_glyph=None,
     ):
         """Process a single SVG file."""
         # Read the SVG content
@@ -234,17 +243,15 @@ class Command(BaseCommand):
         # Get glyph metadata (or use defaults)
         metadata = glyph_metadata.get(glyph_name, default_metadata)
 
-        # Create the glyph record
-        glyph = Glyph(
-            name=glyph_name,
-            meaning=metadata["meaning"],
-            difficulty=metadata["difficulty"],
-            category=metadata["category"],
-            example_sentence=metadata["example_sentence"],
-            description=metadata["description"],
-        )
+        # Update or create the glyph record
+        glyph = existing_glyph or Glyph(name=glyph_name)
+        glyph.meaning = metadata["meaning"]
+        glyph.difficulty = metadata["difficulty"]
+        glyph.category = metadata["category"]
+        glyph.example_sentence = metadata["example_sentence"]
+        glyph.description = metadata["description"]
 
-        # Save to create the model instance
+        # Save to create or update the model instance
         glyph.save()
 
         # Add both the processed PNG and original SVG to the model
