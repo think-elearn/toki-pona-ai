@@ -32,7 +32,7 @@ You can set up the application in two ways:
 
 This is the easiest way to get started, as it will set up everything for you, including the database and ML dependencies.
 
-### Step 1: Clone the repository
+### Step 1: Clone the repository for Docker setup
 
 ```bash
 git clone https://github.com/think-elearn/toki-pona-ai.git
@@ -69,7 +69,7 @@ To access the admin dashboard, go to <http://localhost:8000/admin> and log in wi
 
 ## Option 2: Local Setup
 
-### Step 1: Clone the repository
+### Step 1: Clone the repository for local setup
 
 ```bash
 git clone https://github.com/think-elearn/toki-pona-ai.git
@@ -197,41 +197,63 @@ If you encounter issues with the writing recognition feature:
 
 The application is configured for deployment to Fly.io using the following steps:
 
-1. Install flyctl: https://fly.io/docs/hands-on/install-flyctl/
+1. Install flyctl: <https://fly.io/docs/hands-on/install-flyctl/>
 
 2. Login to Fly.io
-```bash
-fly auth login
-```
+
+    ```bash
+    fly auth login
+    ```
 
 3. Launch the app (first time only)
-```bash
-fly launch --dockerfile Dockerfile.prod
-```
+
+    ```bash
+    fly launch --dockerfile Dockerfile.prod
+    ```
 
 4. Set the required environment variables
-```bash
-# Generate a secure secret key
-SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')
 
-fly secrets set \
-  SECRET_KEY="${SECRET_KEY}" \
-  DEBUG="False" \
-  ALLOWED_HOSTS="your-app-name.fly.dev,localhost,127.0.0.1,[::1]" \
-  DATABASE_URL="your-postgres-connection-string" \
-  ACCOUNT_ALLOW_REGISTRATION="True" \
-  AWS_ACCESS_KEY_ID="your-s3-access-key" \
-  AWS_SECRET_ACCESS_KEY="your-s3-secret-key" \
-  BUCKET_NAME="your-s3-bucket-name" \
-  AWS_REGION="your-s3-region" \
-  AWS_ENDPOINT_URL_S3="https://your-s3-endpoint-url" \
-  REDIS_URL="redis://your-redis-url:6379"
-```
+    ```bash
+    # Generate a secure secret key
+    SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')
+
+    fly secrets set \
+    SECRET_KEY="${SECRET_KEY}" \
+    DEBUG="False" \
+    ALLOWED_HOSTS="your-app-name.fly.dev,localhost,127.0.0.1,[::1]" \
+    DATABASE_URL="your-postgres-connection-string" \
+    ACCOUNT_ALLOW_REGISTRATION="True" \
+    AWS_ACCESS_KEY_ID="your-s3-access-key" \
+    AWS_SECRET_ACCESS_KEY="your-s3-secret-key" \
+    BUCKET_NAME="your-s3-bucket-name" \
+    AWS_REGION="your-s3-region" \
+    AWS_ENDPOINT_URL_S3="https://your-s3-endpoint-url" \
+    REDIS_URL="redis://your-redis-url:6379"
+    ```
 
 5. Deploy updates
-```bash
-fly deploy
-```
+
+    ```bash
+    fly deploy
+    ```
+
+6. (Optional) Load sample data
+
+    For a new deployment, you may want to load initial data:
+
+    ```bash
+    # Connect to the running app
+    fly ssh console
+
+    # Run data loading commands
+    cd /app
+    python manage.py load_glyphs
+    python manage.py load_sample_signs
+    python manage.py load_sample_phrases
+
+    # Exit the console
+    exit
+    ```
 
 ## Next Steps
 
