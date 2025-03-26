@@ -49,16 +49,18 @@ class BasicModelStorageServiceTests(TestCase):
             "apps.writing.services.ml_storage.ModelStorageService._download_model"
         ) as mock_download:
             # Create service and call method
-            service = ModelStorageService()
-            service.get_mobilenet_model_path()
+            with patch.object(settings, "MEDIA_ROOT", self.temp_dir):
+                service = ModelStorageService()
+                service.get_mobilenet_model_path()
 
-            # Verify download is called with correct parameters
-            mock_download.assert_called_once_with(
-                settings.ML_MODELS_STORAGE["MOBILENET_MODEL_URL"],
-                os.path.join(
-                    self.temp_dir, settings.ML_MODELS_STORAGE["MOBILENET_MODEL_PATH"]
-                ),
-            )
+                # Verify download is called with correct parameters
+                expected_path = os.path.join(
+                    os.path.join(self.temp_dir, "ml_models"),
+                    settings.ML_MODELS_STORAGE["MOBILENET_MODEL_PATH"],
+                )
+                mock_download.assert_called_once_with(
+                    settings.ML_MODELS_STORAGE["MOBILENET_MODEL_URL"], expected_path
+                )
 
 
 # Tests using pytest fixtures
@@ -95,7 +97,11 @@ class TestModelStorageService:
 
         # Verify the model was "downloaded" to the temp directory
         assert os.path.exists(model_path)
-        assert model_path.startswith(str(temp_model_dir))
+
+        # Check that the model path starts with the temp_model_dir/ml_models
+        # instead of just temp_model_dir since our changes use media/ml_models
+        ml_models_dir = os.path.join(str(temp_model_dir), "ml_models")
+        assert model_path.startswith(ml_models_dir)
 
         # Verify our mock was called
         mock_download.assert_called_once()

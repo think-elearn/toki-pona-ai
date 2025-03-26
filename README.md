@@ -45,6 +45,7 @@ This will:
 - Build the Docker image with all required dependencies
 - Start PostgreSQL database
 - Run Django migrations
+- Create an admin user automatically
 - Load sample data from the static SVG files
 - Start the development server
 
@@ -77,8 +78,6 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 ```bash
 pip install -e ".[dev]"
-# Install ML-specific dependencies
-pip install mediapipe cairosvg opencv-python pillow
 ```
 
 ### Step 4: Set up PostgreSQL
@@ -114,7 +113,8 @@ python manage.py migrate
 python manage.py createsuperuser
 
 # Load sample glyphs from static SVG files
-# This also generates the necessary PNG templates for the recognition system
+# This creates glyph records in the database, generates PNG templates for recognition,
+# and automatically sets up all necessary directories in the media folder
 python manage.py load_sample_glyphs
 ```
 
@@ -169,6 +169,16 @@ If you encounter database connection issues:
 1. Check your PostgreSQL service is running
 2. Verify your .env file has the correct DATABASE_URL
 3. Make sure the database user has the necessary permissions
+
+### Writing App Issues
+
+If you encounter issues with the writing recognition feature:
+
+1. Make sure you've run `python manage.py load_sample_glyphs` to create the necessary templates
+2. Check that the MediaPipe model was downloaded successfully to `media/ml_models/mobilenet_v3_small.tflite`
+3. Verify that template images exist in `media/templates/`
+4. If you see "No templates found" in the logs, re-run the `load_sample_glyphs` command
+5. Check browser console for any JavaScript errors
 
 ## Next Steps
 
