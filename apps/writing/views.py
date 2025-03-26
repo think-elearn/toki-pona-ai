@@ -110,7 +110,6 @@ def check_drawing(request):
                 "glyph_name": glyph_name,
                 "glyph_id": glyph.id,
                 "has_image": bool(glyph.image),
-                "image_path": glyph.image.path if glyph.image else None,
                 "image_url": glyph.image.url if glyph.image else None,
                 "recognition": {
                     "raw_similarity": round(similarity * 100),
