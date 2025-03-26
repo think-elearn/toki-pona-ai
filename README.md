@@ -1,13 +1,18 @@
 # AI-Powered Toki Pona Language Learning App
 
 [![Build Status](https://github.com/think-elearn/toki-pona-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/think-elearn/toki-pona-ai/actions)
-[![Dependabot Updates](https://github.com/think-elearn/toki-pona-ai/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/think-elearn/toki-pona-ai/actions/workflows/dependabot/dependabot-updates)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/think-elearn/toki-pona-ai/main.svg)](https://results.pre-commit.ci/latest/github/think-elearn/toki-pona-ai/main)
 [![codecov](https://codecov.io/gh/think-elearn/toki-pona-ai/branch/main/graph/badge.svg)](https://codecov.io/gh/think-elearn/toki-pona-ai)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-This is an AI-powered Toki Pona language learning app based on prototypes created during ExamPro's 2025 GenAI Essentials bootcamp. See the original [bootcamp repository](https://github.com/dr-rompecabezas/free-genai-bootcamp-2025) for the projects that inspired this app.
+This project is Toki Pona AI, a language learning platform for Toki Pona with three learning modules:
+
+- Listening exercises with audio recognition
+- Writing practice for Sitelen Pona (logographic script)
+- Signing practice for Luka Pona sign language
+
+This project was originally based on prototypes created during ExamPro's 2025 GenAI Essentials bootcamp. See the original [bootcamp repository](https://github.com/dr-rompecabezas/free-genai-bootcamp-2025) for the projects that inspired this app.
 
 ## Pre-requisites
 
@@ -37,7 +42,7 @@ cd toki-pona-ai
 ### Step 2: Start Docker Compose
 
 ```bash
-docker-compose -f compose.dev.yaml up --build
+docker compose -f compose.dev.yaml up --build
 ```
 
 This will:
@@ -188,6 +193,46 @@ If you encounter issues with the writing recognition feature:
 4. If you see "No templates found" in the logs, re-run the `load_glyphs` command
 5. Check browser console for any JavaScript errors
 
+## Deployment to Production with Fly.io
+
+The application is configured for deployment to Fly.io using the following steps:
+
+1. Install flyctl: https://fly.io/docs/hands-on/install-flyctl/
+
+2. Login to Fly.io
+```bash
+fly auth login
+```
+
+3. Launch the app (first time only)
+```bash
+fly launch --dockerfile Dockerfile.prod
+```
+
+4. Set the required environment variables
+```bash
+# Generate a secure secret key
+SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')
+
+fly secrets set \
+  SECRET_KEY="${SECRET_KEY}" \
+  DEBUG="False" \
+  ALLOWED_HOSTS="your-app-name.fly.dev,localhost,127.0.0.1,[::1]" \
+  DATABASE_URL="your-postgres-connection-string" \
+  ACCOUNT_ALLOW_REGISTRATION="True" \
+  AWS_ACCESS_KEY_ID="your-s3-access-key" \
+  AWS_SECRET_ACCESS_KEY="your-s3-secret-key" \
+  BUCKET_NAME="your-s3-bucket-name" \
+  AWS_REGION="your-s3-region" \
+  AWS_ENDPOINT_URL_S3="https://your-s3-endpoint-url" \
+  REDIS_URL="redis://your-redis-url:6379"
+```
+
+5. Deploy updates
+```bash
+fly deploy
+```
+
 ## Next Steps
 
 After setting up the application, you can:
@@ -202,3 +247,4 @@ After setting up the application, you can:
 - [Toki Pona Official Website](https://tokipona.org/)
 - [Django Documentation](https://docs.djangoproject.com/)
 - [MediaPipe Documentation](https://developers.google.com/mediapipe)
+- [Fly.io Documentation](https://fly.io/docs/)
