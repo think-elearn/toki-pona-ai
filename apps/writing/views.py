@@ -24,13 +24,17 @@ def index(request):
     # Get user progress if any exists
     user_progress = {}
     if request.user.is_authenticated:
-        progress_items = GlyphPracticeProgress.objects.filter(user=request.user)
-        for item in progress_items:
-            user_progress[item.glyph.id] = {
-                "accuracy": item.accuracy,
-                "attempts": item.attempts,
-                "mastered": item.mastered,
+        progress_entries = GlyphPracticeProgress.objects.filter(user=request.user)
+        user_progress = {
+            entry.glyph.id: {
+                "mastered": entry.mastered,
+                "attempts": entry.attempts,
+                "accuracy": round(entry.successful_attempts / entry.attempts * 100, 2)
+                if entry.attempts > 0
+                else 0,
             }
+            for entry in progress_entries
+        }
 
     # Get SVG URLs for all glyphs
     glyph_svg_urls = {}
