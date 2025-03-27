@@ -80,14 +80,18 @@
                                         <p class="card-text small text-secondary">{{ glyph.meaning }}</p>
                                         {% if user_progress and glyph.id in user_progress %}
                                             <div class="mb-2">
-                                                {% if user_progress|get_item:glyph.id|get_item:'mastered' %}
-                                                    <span class="progress-indicator mastered" title="Mastered"></span>
-                                                {% elif user_progress|get_item:glyph.id|get_item:'attempts' > 0 %}
-                                                    <span class="progress-indicator in-progress" title="In Progress"></span>
-                                                {% else %}
-                                                    <span class="progress-indicator not-started" title="Not Started"></span>
-                                                {% endif %}
-                                                <span class="small">{{ user_progress|get_item:glyph.id|get_item:'accuracy' }}%</span>
+                                                {% with user_progress|get_item:glyph.id as progress %}
+                                                    {% if progress.mastered %}
+                                                        <span class="progress-indicator mastered" title="Mastered"></span>
+                                                    {% elif progress.attempts|default:0 > 0 %}
+                                                        <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                    {% else %}
+                                                        <span class="progress-indicator not-started" title="Not Started"></span>
+                                                    {% endif %}
+                                                    <span class="small">
+                                                        {{ progress.accuracy|default:0 }}%
+                                                    </span>
+                                                {% endwith %}
                                             </div>
                                         {% endif %}
                                         <a href="{% url 'writing:practice' glyph.name %}" class="btn btn-primary btn-sm d-block">Practice</a>
@@ -129,14 +133,18 @@
                                         <p class="card-text small text-secondary">{{ glyph.meaning }}</p>
                                         {% if user_progress and glyph.id in user_progress %}
                                             <div class="mb-2">
-                                                {% if user_progress|get_item:glyph.id|get_item:'mastered' %}
-                                                    <span class="progress-indicator mastered" title="Mastered"></span>
-                                                {% elif user_progress|get_item:glyph.id|get_item:'attempts' > 0 %}
-                                                    <span class="progress-indicator in-progress" title="In Progress"></span>
-                                                {% else %}
-                                                    <span class="progress-indicator not-started" title="Not Started"></span>
-                                                {% endif %}
-                                                <span class="small">{{ user_progress|get_item:glyph.id|get_item:'accuracy' }}%</span>
+                                                {% with user_progress|get_item:glyph.id as progress %}
+                                                    {% if progress.mastered %}
+                                                        <span class="progress-indicator mastered" title="Mastered"></span>
+                                                    {% elif progress.attempts|default:0 > 0 %}
+                                                        <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                    {% else %}
+                                                        <span class="progress-indicator not-started" title="Not Started"></span>
+                                                    {% endif %}
+                                                    <span class="small">
+                                                        {{ progress.accuracy|default:0 }}%
+                                                    </span>
+                                                {% endwith %}
                                             </div>
                                         {% endif %}
                                         <a href="{% url 'writing:practice' glyph.name %}" class="btn btn-primary btn-sm d-block">Practice</a>
@@ -178,14 +186,18 @@
                                         <p class="card-text small text-secondary">{{ glyph.meaning }}</p>
                                         {% if user_progress and glyph.id in user_progress %}
                                             <div class="mb-2">
-                                                {% if user_progress|get_item:glyph.id|get_item:'mastered' %}
-                                                    <span class="progress-indicator mastered" title="Mastered"></span>
-                                                {% elif user_progress|get_item:glyph.id|get_item:'attempts' > 0 %}
-                                                    <span class="progress-indicator in-progress" title="In Progress"></span>
-                                                {% else %}
-                                                    <span class="progress-indicator not-started" title="Not Started"></span>
-                                                {% endif %}
-                                                <span class="small">{{ user_progress|get_item:glyph.id|get_item:'accuracy' }}%</span>
+                                                {% with user_progress|get_item:glyph.id as progress %}
+                                                    {% if progress.mastered %}
+                                                        <span class="progress-indicator mastered" title="Mastered"></span>
+                                                    {% elif progress.attempts|default:0 > 0 %}
+                                                        <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                    {% else %}
+                                                        <span class="progress-indicator not-started" title="Not Started"></span>
+                                                    {% endif %}
+                                                    <span class="small">
+                                                        {{ progress.accuracy|default:0 }}%
+                                                    </span>
+                                                {% endwith %}
                                             </div>
                                         {% endif %}
                                         <a href="{% url 'writing:practice' glyph.name %}" class="btn btn-primary btn-sm d-block">Practice</a>
