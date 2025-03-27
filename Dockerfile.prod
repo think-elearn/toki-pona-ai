@@ -49,7 +49,7 @@ ENV BUCKET_NAME=build-time-dummy-bucket
 ENV AWS_REGION=us-east-1
 ENV AWS_ENDPOINT_URL_S3=https://dummy-endpoint
 ENV REDIS_URL=redis://localhost:6379/0
-ENV SENTRY_DSN=build-time-dummy-sentry-dsn
+ENV SENTRY_DSN=https://dummy@sentry.example.com/1
 ENV SENTRY_ENVIRONMENT=build-time-dummy-sentry-environment
 RUN python manage.py collectstatic --noinput
 
