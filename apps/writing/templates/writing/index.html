@@ -52,9 +52,144 @@
     <div class="col-12">
         <h1 class="mb-4">Sitelen Pona Writing Practice</h1>
         <p class="lead">Select a glyph to practice:</p>
+
+        <!-- Search Form -->
+        <form method="get" action="{% url 'writing:index' %}" class="mb-4">
+            <div class="input-group">
+                <input type="text" name="q" class="form-control" placeholder="Search by glyph name or meaning..." value="{{ search_query }}">
+                <button class="btn btn-primary" type="submit">Search</button>
+                {% if search_query %}
+                    <a href="{% url 'writing:index' %}" class="btn btn-outline-secondary">Clear</a>
+                {% endif %}
+            </div>
+        </form>
     </div>
 </div>
 
+{% if search_query %}
+<!-- Search Results -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info bg-opacity-25">
+                <h2 class="h4 mb-0">Search Results for "{{ search_query }}"</h2>
+            </div>
+            <div class="card-body">
+                {% if beginner_glyphs or intermediate_glyphs or advanced_glyphs %}
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-6 g-3">
+                        {% for glyph in beginner_glyphs %}
+                            <div class="col">
+                                <div class="card h-100 glyph-card">
+                                    <div class="glyph-preview p-2">
+                                        {% if glyph.image and glyph.image.name %}
+                                            <img src="{{ glyph.image.url }}" alt="{{ glyph.name }}" class="img-fluid" style="max-height: 80px;">
+                                        {% else %}
+                                            <div class="placeholder-glyph">{{ glyph.name }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ glyph.name }}</h5>
+                                        <p class="card-text small text-secondary">{{ glyph.meaning }}</p>
+                                        {% if user_progress and glyph.id in user_progress %}
+                                            <div class="mb-2">
+                                                {% with user_progress|get_item:glyph.id as progress %}
+                                                    {% if progress.mastered %}
+                                                        <span class="progress-indicator mastered" title="Mastered"></span>
+                                                    {% elif progress.attempts|default:0 > 0 %}
+                                                        <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                    {% else %}
+                                                        <span class="progress-indicator not-started" title="Not Started"></span>
+                                                    {% endif %}
+                                                    <span class="small">
+                                                        {{ progress.accuracy|default:0 }}%
+                                                    </span>
+                                                {% endwith %}
+                                            </div>
+                                        {% endif %}
+                                        <a href="{% url 'writing:practice' glyph.name %}" class="btn btn-primary btn-sm d-block">Practice</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        {% for glyph in intermediate_glyphs %}
+                            <div class="col">
+                                <div class="card h-100 glyph-card">
+                                    <div class="glyph-preview p-2">
+                                        {% if glyph.image and glyph.image.name %}
+                                            <img src="{{ glyph.image.url }}" alt="{{ glyph.name }}" class="img-fluid" style="max-height: 80px;">
+                                        {% else %}
+                                            <div class="placeholder-glyph">{{ glyph.name }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ glyph.name }}</h5>
+                                        <p class="card-text small text-secondary">{{ glyph.meaning }}</p>
+                                        {% if user_progress and glyph.id in user_progress %}
+                                            <div class="mb-2">
+                                                {% with user_progress|get_item:glyph.id as progress %}
+                                                    {% if progress.mastered %}
+                                                        <span class="progress-indicator mastered" title="Mastered"></span>
+                                                    {% elif progress.attempts|default:0 > 0 %}
+                                                        <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                    {% else %}
+                                                        <span class="progress-indicator not-started" title="Not Started"></span>
+                                                    {% endif %}
+                                                    <span class="small">
+                                                        {{ progress.accuracy|default:0 }}%
+                                                    </span>
+                                                {% endwith %}
+                                            </div>
+                                        {% endif %}
+                                        <a href="{% url 'writing:practice' glyph.name %}" class="btn btn-primary btn-sm d-block">Practice</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        {% for glyph in advanced_glyphs %}
+                            <div class="col">
+                                <div class="card h-100 glyph-card">
+                                    <div class="glyph-preview p-2">
+                                        {% if glyph.image and glyph.image.name %}
+                                            <img src="{{ glyph.image.url }}" alt="{{ glyph.name }}" class="img-fluid" style="max-height: 80px;">
+                                        {% else %}
+                                            <div class="placeholder-glyph">{{ glyph.name }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ glyph.name }}</h5>
+                                        <p class="card-text small text-secondary">{{ glyph.meaning }}</p>
+                                        {% if user_progress and glyph.id in user_progress %}
+                                            <div class="mb-2">
+                                                {% with user_progress|get_item:glyph.id as progress %}
+                                                    {% if progress.mastered %}
+                                                        <span class="progress-indicator mastered" title="Mastered"></span>
+                                                    {% elif progress.attempts|default:0 > 0 %}
+                                                        <span class="progress-indicator in-progress" title="In Progress"></span>
+                                                    {% else %}
+                                                        <span class="progress-indicator not-started" title="Not Started"></span>
+                                                    {% endif %}
+                                                    <span class="small">
+                                                        {{ progress.accuracy|default:0 }}%
+                                                    </span>
+                                                {% endwith %}
+                                            </div>
+                                        {% endif %}
+                                        <a href="{% url 'writing:practice' glyph.name %}" class="btn btn-primary btn-sm d-block">Practice</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-center text-muted">No glyphs found matching your search.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not search_query %}
 <!-- Beginner Glyphs -->
 <div class="row mt-4">
     <div class="col-12">
@@ -213,4 +348,5 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}

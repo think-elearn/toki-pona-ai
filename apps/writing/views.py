@@ -2,6 +2,7 @@ import json
 import logging
 
 from django.contrib.auth.decorators import login_required
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 
@@ -13,13 +14,23 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def index(request):
-    """Display glyphs organized by difficulty and category."""
-    # Get all glyphs
-    beginner_glyphs = Glyph.objects.filter(difficulty=Glyph.DifficultyLevel.BEGINNER)
-    intermediate_glyphs = Glyph.objects.filter(
-        difficulty=Glyph.DifficultyLevel.INTERMEDIATE
-    )
-    advanced_glyphs = Glyph.objects.filter(difficulty=Glyph.DifficultyLevel.ADVANCED)
+    """Display glyphs organized by difficulty and category, with optional full-text search."""
+    search_query = request.GET.get("q", "").strip()
+
+    # Get all glyphs, optionally filtered by full-text search
+    glyphs = Glyph.objects.all()
+    if search_query:
+        vector = SearchVector("name", weight="A") + SearchVector("meaning", weight="B")
+        query = SearchQuery(search_query)
+        glyphs = (
+            glyphs.annotate(rank=SearchRank(vector, query))
+            .filter(rank__gte=0.1)
+            .order_by("-rank")
+        )
+
+    beginner_glyphs = glyphs.filter(difficulty=Glyph.DifficultyLevel.BEGINNER)
+    intermediate_glyphs = glyphs.filter(difficulty=Glyph.DifficultyLevel.INTERMEDIATE)
+    advanced_glyphs = glyphs.filter(difficulty=Glyph.DifficultyLevel.ADVANCED)
 
     # Get user progress if any exists
     user_progress = {}
@@ -50,6 +61,7 @@ def index(request):
         "advanced_glyphs": advanced_glyphs,
         "user_progress": user_progress,
         "svg_urls": glyph_svg_urls,
+        "search_query": search_query,  # Include the search query in the context
     }
 
     return render(request, "writing/index.html", context)
