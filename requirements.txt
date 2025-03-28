@@ -43,7 +43,7 @@ jaxlib==0.5.3
 jmespath==1.0.1
 kiwisolver==1.4.8
 matplotlib==3.10.1
-mediapipe==0.10.18
+mediapipe==0.10.21
 ml-dtypes==0.4.1 ; python_full_version >= '3.13'
 ml-dtypes==0.5.1 ; python_full_version < '3.13'
 nodeenv==1.9.1

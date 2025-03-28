@@ -20,7 +20,7 @@ dependencies = [
     "django-storages[s3]>=1.14.5",
     "django-widget-tweaks>=1.5.0",
     "gunicorn>=23.0.0",
-    "mediapipe==0.10.18",
+    "mediapipe==0.10.21",
     "numpy>=1.26.4",
     "opencv-python>=4.11.0.86",
     "pillow>=11.1.0",
