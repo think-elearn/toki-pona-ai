@@ -37,7 +37,7 @@ gunicorn==23.0.0
 hiredis==3.1.0
 identify==2.6.9
 idna==3.10
-iniconfig==2.0.0
+iniconfig==2.1.0
 jax==0.5.3
 jaxlib==0.5.3
 jmespath==1.0.1
