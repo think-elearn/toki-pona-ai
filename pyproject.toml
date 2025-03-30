@@ -9,8 +9,11 @@ authors = [
 ]
 license = "MIT"
 dependencies = [
+    "anthropic>=0.49.0",
     "boto3>=1.37.22",
     "cairosvg>=2.7.1",
+    "celery>=5.4.0",
+    "channels[daphne]>=4.2.2",
     "crispy-bootstrap5>=2024.10",
     "django>=4.2.20",
     "django-allauth>=65.5.0",
@@ -19,6 +22,7 @@ dependencies = [
     "django-htmx>=1.23.0",
     "django-storages[s3]>=1.14.5",
     "django-widget-tweaks>=1.5.0",
+    "google-api-python-client>=2.166.0",
     "gunicorn>=23.0.0",
     "mediapipe==0.10.18",
     "numpy>=1.26.4",
@@ -26,11 +30,15 @@ dependencies = [
     "pgvector>=0.4.0",
     "pillow>=11.1.0",
     "psycopg>=3.2.6",
+    "pydub>=0.25.1",
     "python-dotenv>=1.0.1",
+    "pytube>=15.0.0",
     "redis[hiredis]>=5.2.1",
     "requests>=2.32.3",
     "sentry-sdk[django]>=2.24.1",
+    "speechrecognition>=3.14.2",
     "whitenoise>=6.9.0",
+    "youtube-transcript-api>=1.0.3",
 ]
 
 [dependency-groups]
