@@ -749,3 +749,73 @@ The modular approach allows for incremental development and testing, while the W
 
 - Create functions for semantic search across transcripts
 - Implement relevance ranking based on vector similarity
+
+### pgvector Indexing Options
+
+```python
+from pgvector.django import VectorField, HnswIndex, IvfflatIndex
+
+class Transcript(models.Model):
+
+    embeddings = VectorField(
+        dimensions=1536, null=True
+    )  # For storing vector embeddings
+
+    class Meta:
+        indexes = [
+            # Standard index for the foreign key
+            models.Index(fields=["video"]),
+
+            # HNSW index for faster approximate nearest neighbor search
+            # Better for production with read-heavy workloads
+            HnswIndex(
+                name='transcript_embeddings_hnsw_idx',
+                fields=['embeddings'],
+                m=16,  # Number of connections per element
+                ef_construction=64,  # Size of dynamic candidate list for construction
+                opclasses=['vector_cosine_ops']  # Cosine distance is often best for text embeddings
+            ),
+
+            # Alternative: IVFFlat index which is better for smaller datasets
+            # and workloads with more frequent writes
+            # IvfflatIndex(
+            #     name='transcript_embeddings_ivfflat_idx',
+            #     fields=['embeddings'],
+            #     lists=100,  # Number of lists to divide the data into
+            #     opclasses=['vector_cosine_ops']
+            # )
+        ]
+```
+
+The specialized pgvector indexes provide significant advantages:
+
+1. HNSW Index (Hierarchical Navigable Small World):
+
+    - Excellent for high-dimensional data
+    - Very fast query performance
+    - Good for read-heavy workloads
+    - Uses more memory but provides better search performance
+
+2. IVFFlat Index (Inverted File with Flat Compression):
+
+    - Good balance between build time, query time, and accuracy
+    - More efficient with storage than HNSW
+    - Better for datasets that change frequently
+
+For most language learning applications with embeddings, HNSW is typically the better choice due to its superior query performance, especially if your embeddings won't change very frequently.
+
+When implementing queries, you'll be able to use pgvector's similarity search operations:
+
+```python
+# Example search function
+def find_similar_transcripts(query_embedding, limit=5):
+    from pgvector.django import CosineDistance
+
+    return Transcript.objects.filter(
+        has_embeddings=True
+    ).order_by(
+        CosineDistance('embeddings', query_embedding)
+    )[:limit]
+```
+
+This approach takes full advantage of pgvector's specialized capabilities for efficient vector similarity searches.
