@@ -726,3 +726,26 @@ ENV DJANGO_SETTINGS_MODULE=config.settings.production
 This implementation plan provides a comprehensive roadmap for transforming the existing Toki Pona learning application into an AI-powered, chat-first learning platform. By leveraging Django Channels, Celery, and Redis alongside the Anthropic Claude API and YouTube services, we can create an engaging, interactive learning experience that guides users through their Toki Pona language journey.
 
 The modular approach allows for incremental development and testing, while the WebSocket-based communication enables the real-time, dynamic interactions necessary for an effective conversational learning platform.
+
+## Postscript: pgvector Implementation
+
+**Database Setup:**
+
+- Add pgvector extension to PostgreSQL
+- Create vector columns for storing embeddings
+- Set up appropriate indexes for similarity searches
+
+**Model Updates:**
+
+- Modify the Transcript model to use pgvector's VectorField instead of BinaryField
+- Add similarity search methods to relevant models
+
+**Configuration:**
+
+- Update Django settings to include pgvector support
+- Configure connection parameters for vector operations
+
+**Search Implementation:**
+
+- Create functions for semantic search across transcripts
+- Implement relevance ranking based on vector similarity
