@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     "apps.listening",
     "apps.writing",
     "apps.signing",
+    "apps.tutor",
+    "apps.core",
 ]
 
 MIDDLEWARE = [
