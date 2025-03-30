@@ -5,7 +5,7 @@ volumes:
 
 services:
   db:
-    image: pgvector/pgvector:15
+    image: pgvector/pgvector:pg15
     platform: linux/arm64  # Specify platform to match your host
     volumes:
       - postgres_data:/var/lib/postgresql/data/
