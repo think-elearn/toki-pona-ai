@@ -217,7 +217,7 @@ class QuizAttempt(models.Model):
 
 ```text
 templates/
-├── listening/
+├── tutor/
 │   ├── base_chat.html        # Base template with chat layout
 │   ├── index.html            # Entry point/dashboard
 │   ├── conversation.html     # Main chat interface
@@ -337,7 +337,7 @@ from django.core.asgi import get_asgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'project.settings')
 
-from apps.listening import routing
+from apps.tutor import routing
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
@@ -352,7 +352,7 @@ application = ProtocolTypeRouter({
 ### WebSocket Consumer
 
 ```python
-# apps/listening/consumers.py
+# apps/tutor/consumers.py
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .tasks import process_user_message
@@ -446,7 +446,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 ### Task Configuration
 
 ```python
-# apps/listening/tasks.py
+# apps/tutor/tasks.py
 from celery import shared_task
 from django.contrib.auth.models import User
 from .models import Conversation, Message
