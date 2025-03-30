@@ -1,4 +1,4 @@
-# AI-Powered Toki Pona Language Learning App
+# Toki Pona AI: Interactive Tutor, Listening, Writing and Signing
 
 [![Build Status](https://github.com/think-elearn/toki-pona-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/think-elearn/toki-pona-ai/actions)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/think-elearn/toki-pona-ai/main.svg)](https://results.pre-commit.ci/latest/github/think-elearn/toki-pona-ai/main)
@@ -6,20 +6,35 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-This project is Toki Pona AI, a language learning platform for Toki Pona with three learning modules:
+Toki Pona AI is a comprehensive language learning platform for Toki Pona - a minimalist constructed language with only about 120 core words. The application features four interactive learning modules:
 
-- Listening exercises with audio recognition
-- Writing practice for Sitelen Pona (logographic script)
-- Signing practice for Luka Pona sign language
+- **Tutor Module**: AI-powered personalized learning sessions
+- **Listening Module**: Audio recognition exercises to improve comprehension
+- **Writing Module**: Practice for Sitelen Pona (the logographic writing system)
+- **Signing Module**: Interactive lessons for Luka Pona sign language
 
-This project was originally based on prototypes created during ExamPro's 2025 GenAI Essentials bootcamp. See the original [bootcamp repository](https://github.com/dr-rompecabezas/free-genai-bootcamp-2025) for the projects that inspired this app.
+This project was originally developed as a final assignment for ExamPro's 2025 applied GenAI bootcamp, evolving from Streamlit and CLI-based prototypes. For the earlier versions, see the original [bootcamp repository](https://github.com/dr-rompecabezas/free-genai-bootcamp-2025).
 
 ## Pre-requisites
 
-- Python 3.12
-- PostgreSQL
-- Docker and Docker Compose (optional)
 - Git
+- Python 3.12
+- Docker and Docker Compose (recommended for easier setup)
+- Anthropic API key (required for the tutor module)
+- YouTube API key (required for the tutor module)
+
+For the non-Docker setup, you will also need to install the following:
+
+### System dependencies
+
+- PostgreSQL 15 with pgvector extension
+- Redis (for caching and background tasks)
+
+### System libraries for ML and image processing
+
+- OpenCV dependencies (libgl1-mesa-glx, libglib2.0-0, libsm6, libxrender1, libxext6)
+- SVG processing dependencies (libcairo2-dev, pkg-config, python3-dev)
+- Build essentials and PostgreSQL development libraries (build-essential, libpq-dev)
 
 ## Setup Options
 
@@ -39,15 +54,18 @@ git clone https://github.com/think-elearn/toki-pona-ai.git
 cd toki-pona-ai
 ```
 
-### Step 2: Start Docker Compose
+### Step 2: Start Docker Compose with your API keys
+
+Both the Anthropic API key and YouTube API key are required for the tutor module functionality. To start the application with your API keys:
 
 ```bash
-docker compose -f compose.dev.yaml up --build
+ANTHROPIC_API_KEY=your_anthropic_api_key YOUTUBE_API_KEY=your_youtube_api_key docker compose -f compose.dev.yaml up --build
 ```
 
 This will:
 
 - Build the Docker image with all required dependencies
+- Configure the application with your API keys
 - Start PostgreSQL database (with health check to ensure it's ready)
 - Run Django migrations
 - Create an admin user automatically
@@ -57,6 +75,14 @@ This will:
 - Start the development server
 
 The setup process is fully automated and will ensure the application is 100% functional once started.
+
+If you need to restart the application later, you can use:
+
+```bash
+ANTHROPIC_API_KEY=your_anthropic_api_key YOUTUBE_API_KEY=your_youtube_api_key docker compose -f compose.dev.yaml up
+```
+
+This approach avoids storing your API key in any files, keeping it secure and preventing accidental commits to version control.
 
 ### Step 3: Access the application
 
@@ -106,6 +132,7 @@ Create a `.env` file in the project root:
 ```bash
 echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/toki_pona_db
 SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')
+ANTROPIC_API_KEY=your_anthropic_api_key
 DEBUG=True" > .env
 ```
 
@@ -228,7 +255,9 @@ The application is configured for deployment to Fly.io using the following steps
     BUCKET_NAME="your-s3-bucket-name" \
     AWS_REGION="your-s3-region" \
     AWS_ENDPOINT_URL_S3="https://your-s3-endpoint-url" \
-    REDIS_URL="redis://your-redis-url:6379"
+    REDIS_URL="redis://your-redis-url:6379" \
+    ANTHROPIC_API_KEY="your-anthropic-api-key" \
+    YOUTUBE_API_KEY="your-youtube-api-key"
     ```
 
 5. Deploy updates
