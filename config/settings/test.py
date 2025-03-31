@@ -22,18 +22,16 @@ from .base import ML_MODELS_STORAGE, STORAGES, TEMPLATES  # noqa: E402
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Use in-memory SQLite for tests
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-    }
-}
+# Test-specific settings
+TEST_RUNNER = "django.test.runner.DiscoverRunner"
 
 # Use faster password hasher in tests
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
+
+# Email
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
 # Use simple cache for tests
 CACHES = {
