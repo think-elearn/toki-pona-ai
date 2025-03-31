@@ -20,7 +20,7 @@ cycler==0.12.1
 defusedxml==0.7.1
 distlib==0.3.9
 django==4.2.20
-django-allauth==65.5.0
+django-allauth==65.6.0
 django-crispy-forms==2.3
 django-debug-toolbar==5.1.0
 django-environ==0.12.0
