@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Conversations - Toki Pona Learning{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Your Learning Conversations</h1>
+    <a href="{% url 'tutor:create_conversation' %}" class="btn btn-primary">
+      <i class="bi bi-plus-circle"></i> New Conversation
+    </a>
+  </div>
+
+  {% if conversations %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+      {% for conversation in conversations %}
+        <div class="col">
+          <div class="card h-100 conversation-card">
+            <div class="card-body">
+              <h5 class="card-title">{{ conversation.title }}</h5>
+              <p class="card-text text-muted">
+                <small>Last updated: {{ conversation.updated_at|date:"M d, Y" }} at {{ conversation.updated_at|time:"H:i" }}</small>
+              </p>
+
+              {% if conversation.state.current_video_id %}
+                <div class="mb-3">
+                  <span class="badge bg-primary">Has Video</span>
+                </div>
+              {% endif %}
+
+              {% if conversation.state.current_quiz %}
+                <div class="mb-3">
+                  <span class="badge bg-success">Has Quiz</span>
+                </div>
+              {% endif %}
+            </div>
+            <div class="card-footer bg-transparent d-flex justify-content-between">
+              <a href="{% url 'tutor:conversation' conversation.id %}" class="btn btn-sm btn-outline-primary">Continue</a>
+              <form action="{% url 'tutor:delete_conversation' conversation.id %}" method="get" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="alert alert-info">
+      <p class="mb-0">You haven't started any conversations yet. Create a new conversation to get started!</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

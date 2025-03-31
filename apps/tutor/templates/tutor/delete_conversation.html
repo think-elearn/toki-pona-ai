@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Conversation - Toki Pona Learning{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow">
+        <div class="card-header bg-danger text-white">
+          <h1 class="h4 mb-0">Delete Conversation</h1>
+        </div>
+        <div class="card-body">
+          <p class="card-text">Are you sure you want to delete the conversation <strong>"{{ conversation.title }}"</strong>?</p>
+          <p class="card-text text-danger">This action cannot be undone. All messages and learning progress from this conversation will be permanently removed.</p>
+
+          <form method="post" action="{% url 'listening:delete_conversation' conversation.id %}">
+            {% csrf_token %}
+
+            <div class="d-flex justify-content-between mt-4">
+              <a href="{% url 'listening:conversation_list' %}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-danger">Delete Permanently</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

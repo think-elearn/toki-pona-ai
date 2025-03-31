@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Start New Conversation - Toki Pona Learning{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+          <h1 class="h4 mb-0">Start a New Learning Conversation</h1>
+        </div>
+        <div class="card-body">
+          <p class="card-text">You're about to start a new conversation with the Toki Pona learning assistant.</p>
+
+          <form method="post" action="{% url 'tutor:create_conversation' %}">
+            {% csrf_token %}
+
+            <div class="mb-3">
+              <label for="title" class="form-label">Conversation Title</label>
+              <input type="text" class="form-control" id="title" name="title"
+                     value="Toki Pona Learning - {{ current_date }}" required>
+              <div class="form-text">Give your conversation a descriptive name to help you remember what you worked on.</div>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label">What would you like to focus on?</label>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="focus" id="focus-beginner" value="beginner" checked>
+                <label class="form-check-label" for="focus-beginner">
+                  <strong>Beginner Concepts</strong> - Basic vocabulary, simple sentences, and common phrases
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="focus" id="focus-intermediate" value="intermediate">
+                <label class="form-check-label" for="focus-intermediate">
+                  <strong>Intermediate Practice</strong> - Grammar, more complex sentences, and conversation
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="focus" id="focus-advanced" value="advanced">
+                <label class="form-check-label" for="focus-advanced">
+                  <strong>Advanced Topics</strong> - Idiomatic expressions, nuanced meanings, and fluency
+                </label>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+              <a href="{% url 'tutor:conversation_list' %}" class="btn btn-outline-secondary">Cancel</a>
+              <button type="submit" class="btn btn-primary">Start Conversation</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

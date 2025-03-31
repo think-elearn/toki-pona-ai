@@ -1,0 +1,52 @@
+{% extends "tutor/base_chat.html" %}
+
+{% block title %}{{ conversation.title }} - Toki Pona Learning{% endblock %}
+
+{% block messages %}
+  {% include "tutor/partials/messages.html" with messages=conversation.messages.all %}
+{% endblock %}
+
+{% block content_panel %}
+  {% if current_video %}
+    {% include "tutor/partials/video_panel.html" with video=current_video %}
+  {% elif current_quiz %}
+    {% include "tutor/partials/quiz.html" with quiz=current_quiz %}
+  {% else %}
+    <div class="p-4">
+      <h2 class="h4 mb-3">Toki Pona Learning Assistant</h2>
+      <p>Welcome to your Toki Pona learning session! Ask me questions about Toki Pona, request video recommendations, or practice your skills with interactive exercises.</p>
+
+      <div class="mt-4">
+        <h3 class="h5">Suggested topics:</h3>
+        <ul>
+          <li>Basic vocabulary and phrases</li>
+          <li>Grammar rules and sentence structure</li>
+          <li>Listening comprehension practice</li>
+          <li>Translation exercises</li>
+        </ul>
+      </div>
+
+      <div class="mt-4">
+        <h3 class="h5">Learning progress:</h3>
+        <div class="progress mb-2">
+          <div class="progress-bar" role="progressbar" style="width: {{ user_progress.vocabulary_percent }}%;"
+               aria-valuenow="{{ user_progress.vocabulary_percent }}" aria-valuemin="0" aria-valuemax="100">
+            Vocabulary: {{ user_progress.vocabulary_percent }}%
+          </div>
+        </div>
+        <div class="progress mb-2">
+          <div class="progress-bar bg-success" role="progressbar" style="width: {{ user_progress.grammar_percent }}%;"
+               aria-valuenow="{{ user_progress.grammar_percent }}" aria-valuemin="0" aria-valuemax="100">
+            Grammar: {{ user_progress.grammar_percent }}%
+          </div>
+        </div>
+        <div class="progress">
+          <div class="progress-bar bg-info" role="progressbar" style="width: {{ user_progress.listening_percent }}%;"
+               aria-valuenow="{{ user_progress.listening_percent }}" aria-valuemin="0" aria-valuemax="100">
+            Listening: {{ user_progress.listening_percent }}%
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
