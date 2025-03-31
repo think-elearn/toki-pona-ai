@@ -102,7 +102,7 @@ class MessageAdmin(admin.ModelAdmin):
 
     @admin.display(description="Conversation")
     def conversation_link(self, obj):
-        url = f"/admin/listening/conversation/{obj.conversation.id}/change/"
+        url = f"/admin/tutor/conversation/{obj.conversation.id}/change/"
         return format_html('<a href="{}">{}</a>', url, obj.conversation.title)
 
 
@@ -203,7 +203,7 @@ class QuizAttemptAdmin(admin.ModelAdmin):
 
     @admin.display(description="Conversation")
     def conversation_link(self, obj):
-        url = f"/admin/listening/conversation/{obj.conversation.id}/change/"
+        url = f"/admin/tutor/conversation/{obj.conversation.id}/change/"
         return format_html('<a href="{}">{}</a>', url, obj.conversation.title)
 
     @admin.display(description="Correct Answers")
