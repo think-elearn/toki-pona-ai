@@ -1,4 +1,4 @@
-# Toki Pona AI: Interactive Tutor, Listening, Writing and Signing
+# Toki Pona AI-Powered Interactive Tutoring, and Writing and Signing Practice
 
 [![Build Status](https://github.com/think-elearn/toki-pona-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/think-elearn/toki-pona-ai/actions)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/think-elearn/toki-pona-ai/main.svg)](https://results.pre-commit.ci/latest/github/think-elearn/toki-pona-ai/main)
@@ -6,10 +6,9 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-Toki Pona AI is a comprehensive language learning platform for Toki Pona - a minimalist constructed language with only about 120 core words. The application features four interactive learning modules:
+Toki Pona AI is a comprehensive language learning platform for Toki Pona - a minimalist constructed language with only about 120 core words. The application features three interactive learning modules:
 
 - **Tutor Module**: AI-powered personalized learning sessions
-- **Listening Module**: Audio recognition exercises to improve comprehension
 - **Writing Module**: Practice for Sitelen Pona (the logographic writing system)
 - **Signing Module**: Interactive lessons for Luka Pona sign language
 
@@ -176,6 +175,15 @@ The application will be available at <http://localhost:8000>
 4. Use the drawing canvas to practice writing the glyph
 5. Click "Check Drawing" to get feedback on your writing
 
+## Using the Tutor Module
+
+1. Log in to the application
+2. From the dashboard, create a new conversation or continue an existing one
+3. Try these suggested interactions:
+   - "I'm new to Toki Pona. Can you teach me some basic phrases?"
+   - "Can you recommend a video about Toki Pona grammar?"
+   - "Let's practice some translations from English to Toki Pona"
+
 ## Troubleshooting
 
 ### MediaPipe Installation Issues
@@ -268,7 +276,7 @@ The application is configured for deployment to Fly.io using the following steps
 
 6. (Optional) Load sample data
 
-    For a new deployment, you may want to load initial data:
+    For a new deployment, you may want to load initial data and translations.
 
     ```bash
     # Connect to the running app
@@ -279,6 +287,10 @@ The application is configured for deployment to Fly.io using the following steps
     python manage.py load_glyphs
     python manage.py load_sample_signs
     python manage.py load_sample_phrases
+
+    # Compile translations
+    python manage.py makemessages -l en
+    python manage.py compilemessages
 
     # Exit the console
     exit
@@ -298,4 +310,5 @@ After setting up the application, you can:
 - [Toki Pona Official Website](https://tokipona.org/)
 - [Django Documentation](https://docs.djangoproject.com/)
 - [MediaPipe Documentation](https://developers.google.com/mediapipe)
+- [Anthropic API Documentation](https://docs.anthropic.com/)
 - [Fly.io Documentation](https://fly.io/docs/)
