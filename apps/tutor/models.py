@@ -3,6 +3,57 @@ from django.db import models
 from pgvector.django import HnswIndex, VectorField
 
 
+class TokiPonaPhrase(models.Model):
+    class DifficultyLevel(models.TextChoices):
+        BEGINNER = "beginner", "Beginner"
+        INTERMEDIATE = "intermediate", "Intermediate"
+        ADVANCED = "advanced", "Advanced"
+
+    title = models.CharField(max_length=100, default="Toki Pona Exercise")
+    text = models.CharField(max_length=200)
+    translations = models.JSONField()
+    audio_file = models.FileField(upload_to="audio/", null=True, blank=True)
+    youtube_video_id = models.CharField(max_length=20, null=True, blank=True)
+    transcript = models.TextField(blank=True)
+    difficulty = models.CharField(
+        max_length=20,
+        choices=DifficultyLevel.choices,
+        default=DifficultyLevel.BEGINNER,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+
+class ListeningExerciseProgress(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    phrase = models.ForeignKey(TokiPonaPhrase, on_delete=models.CASCADE)
+    completed = models.BooleanField(default=False)
+    last_attempt = models.DateTimeField(auto_now=True)
+    correct_attempts = models.PositiveIntegerField(default=0)
+    total_attempts = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "phrase"], name="unique_user_phrase"
+            )
+        ]
+        verbose_name_plural = "Listening exercise progress"
+
+    def __str__(self):
+        return f"{self.user.username}'s progress on '{self.phrase.title}'"
+
+    @property
+    def accuracy(self):
+        """Calculate accuracy percentage."""
+        if self.total_attempts == 0:
+            return 0
+        return (self.correct_attempts / self.total_attempts) * 100
+
+
 class Conversation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
@@ -12,6 +63,12 @@ class Conversation(models.Model):
     learning_focus = models.CharField(max_length=50, null=True, blank=True)
     # Metadata about conversation state
     state = models.JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.user.username})"
+
+    class Meta:
+        ordering = ["-updated_at"]
 
 
 class Message(models.Model):
@@ -32,6 +89,12 @@ class Message(models.Model):
     tool_name = models.CharField(max_length=50, null=True, blank=True)
     tool_input = models.JSONField(null=True, blank=True)
     tool_output = models.JSONField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.role} message in {self.conversation.title}"
+
+    class Meta:
+        ordering = ["created_at"]
 
 
 class VideoResource(models.Model):
@@ -58,6 +121,9 @@ class VideoResource(models.Model):
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.youtube_id})"
 
 
 class Transcript(models.Model):
@@ -93,6 +159,9 @@ class Transcript(models.Model):
             ),
         ]
 
+    def __str__(self):
+        return f"Transcript for {self.video.title}"
+
 
 class LearningProgress(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -116,3 +185,79 @@ class LearningProgress(models.Model):
     learning_style = models.CharField(max_length=50, null=True, blank=True)
 
     last_activity = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s Learning Progress"
+
+
+class QuizAttempt(models.Model):
+    """Record of a quiz attempt by a user."""
+
+    conversation = models.ForeignKey(
+        Conversation, on_delete=models.CASCADE, related_name="quiz_attempts"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="quiz_attempts"
+    )
+    video = models.ForeignKey(
+        VideoResource,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="quiz_attempts",
+    )
+
+    # Quiz content
+    questions = models.JSONField(
+        help_text="JSON array of quiz questions with options and correct answers"
+    )
+    user_answers = models.JSONField(
+        help_text="JSON array of user-selected answer indices"
+    )
+    correct_answers = models.JSONField(
+        help_text="JSON array of boolean values indicating correct/incorrect"
+    )
+
+    # Results
+    score = models.FloatField(
+        help_text="Percentage score (0-100)"
+    )  # Percentage correct
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    # Feedback
+    feedback = models.TextField(
+        blank=True, help_text="Textual feedback provided to the user"
+    )
+    areas_for_improvement = models.JSONField(
+        default=list, help_text="List of areas to focus on for improvement"
+    )
+
+    # Quiz metadata
+    difficulty = models.CharField(
+        max_length=20,
+        choices=TokiPonaPhrase.DifficultyLevel.choices,
+        default=TokiPonaPhrase.DifficultyLevel.BEGINNER,
+        help_text="Difficulty level of the quiz",
+    )
+    question_count = models.PositiveIntegerField(
+        default=5, help_text="Number of questions in the quiz"
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Quiz Attempt"
+        verbose_name_plural = "Quiz Attempts"
+
+    def __str__(self):
+        return f"{self.user.username}'s Quiz ({self.score:.1f}%)"
+
+    @property
+    def correct_count(self):
+        """Return the number of correct answers."""
+        return sum(1 for answer in self.correct_answers if answer)
+
+    @property
+    def is_passing(self):
+        """Check if the score is passing (>= 70%)."""
+        return self.score >= 70.0
