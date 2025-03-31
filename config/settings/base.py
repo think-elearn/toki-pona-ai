@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     # Local apps
     "apps.accounts",
     "apps.dashboard",
-    "apps.listening",
     "apps.writing",
     "apps.signing",
     "apps.tutor",
@@ -85,7 +84,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
-ASGI_APPLICATION = "config.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -207,6 +205,29 @@ CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
-# API Keys
+# Tutor settings
 ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
 YOUTUBE_API_KEY = env("YOUTUBE_API_KEY", default="")
+CLAUDE_MODEL_OPUS = env("CLAUDE_MODEL_OPUS", default="claude-3-opus-20240229")
+CLAUDE_MODEL_SONNET = env("CLAUDE_MODEL_SONNET", default="claude-3-7-sonnet-20250219")
+CLAUDE_MODEL_HAIKU = env("CLAUDE_MODEL_HAIKU", default="claude-3-5-haiku-20241022")
+
+# Django Channels settings for WebSocket support
+# Use Redis as the channel layer backend
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": env.list("REDIS_URL", default=["redis://localhost:6379/0"]),
+        },
+    },
+}
+
+# Add Channels to installed apps
+CHANNELS_APPS = [
+    "channels",
+    "channels.delay",
+]
+
+# Set the ASGI application
+ASGI_APPLICATION = "config.asgi.application"
