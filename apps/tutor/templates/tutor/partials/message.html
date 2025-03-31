@@ -1,0 +1,18 @@
+{% if message.is_tool_call %}
+  {% if message.role == "assistant" %}
+    <div class="tool-execution-message">
+      <small class="text-muted">Using tool: {{ message.tool_name }}</small>
+    </div>
+  {% endif %}
+{% else %}
+  <div class="message message-{{ message.role }}">
+    {% if message.role == "assistant" %}
+      <div>{{ message.content|linebreaksbr }}</div>
+    {% elif message.role == "user" %}
+      <div>{{ message.content }}</div>
+    {% elif message.role == "system" %}
+      <div><em>{{ message.content }}</em></div>
+    {% endif %}
+    <small class="text-muted d-block mt-1">{{ message.created_at|time:"H:i" }}</small>
+  </div>
+{% endif %}

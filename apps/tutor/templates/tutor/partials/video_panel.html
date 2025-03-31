@@ -1,0 +1,153 @@
+<!-- Video information header -->
+<div class="p-3 border-bottom">
+    <h2 class="h5 mb-2">{{ video.title }}</h2>
+    <div class="d-flex justify-content-between">
+      <span class="text-muted small">{{ video.channel }}</span>
+      <span class="text-muted small">{{ video.duration }}</span>
+    </div>
+  </div>
+
+  <!-- Video player -->
+  <div class="video-container">
+    <iframe
+      src="https://www.youtube.com/embed/{{ video.video_id }}"
+      title="YouTube video player"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+  <!-- Tabs for transcript and vocabulary -->
+  <div class="px-3 py-2 border-top border-bottom bg-light">
+    <ul class="nav nav-tabs" id="videoTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="transcript-tab" data-bs-toggle="tab" data-bs-target="#transcript-tab-pane"
+                type="button" role="tab" aria-controls="transcript-tab-pane" aria-selected="true">
+          Transcript
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="vocabulary-tab" data-bs-toggle="tab" data-bs-target="#vocabulary-tab-pane"
+                type="button" role="tab" aria-controls="vocabulary-tab-pane" aria-selected="false">
+          Vocabulary
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="quiz-tab" data-bs-toggle="tab" data-bs-target="#quiz-tab-pane"
+                type="button" role="tab" aria-controls="quiz-tab-pane" aria-selected="false">
+          Quiz
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Tab content -->
+  <div class="tab-content" id="videoTabContent">
+    <!-- Transcript tab -->
+    <div class="tab-pane fade show active" id="transcript-tab-pane" role="tabpanel" aria-labelledby="transcript-tab" tabindex="0">
+      <div class="transcript-container">
+        {% if video.transcript %}
+          {% if segments %}
+            {% for segment in segments %}
+              <div class="transcript-segment" data-start-time="{{ segment.start_time }}">
+                <small class="text-muted d-block mb-1">{{ segment.timestamp }}</small>
+                <div>{{ segment.text }}</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p>{{ video.transcript }}</p>
+          {% endif %}
+        {% else %}
+          <p class="text-muted">No transcript available for this video.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Vocabulary tab -->
+    <div class="tab-pane fade" id="vocabulary-tab-pane" role="tabpanel" aria-labelledby="vocabulary-tab" tabindex="0">
+      <div class="p-3">
+        {% if vocabulary %}
+          <h3 class="h6 mb-3">Key Toki Pona Words</h3>
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Word</th>
+                  <th>Definition</th>
+                  <th>Example</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in vocabulary %}
+                  <tr>
+                    <td><strong>{{ item.word }}</strong></td>
+                    <td>{{ item.definition }}</td>
+                    <td><em>{{ item.example }}</em></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="text-center p-4">
+              <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p>Extracting vocabulary from video...</p>
+              <small class="text-muted">This may take a moment</small>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Quiz tab -->
+    <div class="tab-pane fade" id="quiz-tab-pane" role="tabpanel" aria-labelledby="quiz-tab" tabindex="0">
+      <div class="p-3">
+        {% if not current_quiz %}
+          <div class="text-center p-4">
+            <h3 class="h5 mb-3">Test your knowledge</h3>
+            <p>Generate a quiz based on this video to practice what you've learned.</p>
+
+            <div class="my-4">
+              <form hx-post="{% url 'tutor:generate_quiz' %}" hx-target="#quiz-tab-pane" hx-swap="innerHTML">
+                <input type="hidden" name="video_id" value="{{ video.video_id }}">
+                <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+
+                <div class="mb-3">
+                  <label class="form-label">Difficulty level:</label>
+                  <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="difficulty" id="beginner" value="beginner" checked>
+                    <label class="btn btn-outline-primary" for="beginner">Beginner</label>
+
+                    <input type="radio" class="btn-check" name="difficulty" id="intermediate" value="intermediate">
+                    <label class="btn btn-outline-primary" for="intermediate">Intermediate</label>
+
+                    <input type="radio" class="btn-check" name="difficulty" id="advanced" value="advanced">
+                    <label class="btn btn-outline-primary" for="advanced">Advanced</label>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label for="question_count" class="form-label">Number of questions:</label>
+                  <select class="form-select" id="question_count" name="question_count">
+                    <option value="3">3 questions</option>
+                    <option value="5" selected>5 questions</option>
+                    <option value="10">10 questions</option>
+                  </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">
+                  <i class="bi bi-puzzle"></i> Generate Quiz
+                </button>
+              </form>
+            </div>
+          </div>
+        {% else %}
+          {% include "tutor/partials/quiz.html" with quiz=current_quiz %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
