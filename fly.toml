@@ -16,6 +16,12 @@ primary_region = 'yyz'
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
+  processes = ['app']
+
+[services.concurrency]
+  type = "connections"
+  hard_limit = 1000
+  soft_limit = 500
 
 [[services.ports]]
   port = 443
@@ -37,3 +43,8 @@ primary_region = 'yyz'
 
 [deploy]
   release_command = "python manage.py migrate --noinput"
+
+[processes]
+  app = "daphne -b 0.0.0.0 -p 8000 project.asgi:application"
+  worker = "celery -A project worker --loglevel=info"
+  beat = "celery -A project beat --loglevel=info"
