@@ -819,3 +819,11 @@ def find_similar_transcripts(query_embedding, limit=5):
 ```
 
 This approach takes full advantage of pgvector's specialized capabilities for efficient vector similarity searches.
+
+## Ideas for Extending the Application
+
+The modular design makes it easy to extend the application in several ways:
+
+- Enhance Content Analysis: Deeper NLP for vocabulary extraction
+- Implement User Profiles: More detailed learning preferences
+- Add Social Features: Learning groups, shared progress, etc.
