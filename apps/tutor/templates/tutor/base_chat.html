@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Toki Pona Learning Chat{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Chat container styles */
+  .chat-container {
+    display: flex;
+    height: calc(100vh - 120px);
+    overflow: hidden;
+  }
+
+  /* Chat messages area */
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Content panel (for video, transcript, etc.) */
+  .content-panel {
+    width: 50%;
+    border-left: 1px solid #dee2e6;
+    background-color: white;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Chat messages */
+  .message {
+    max-width: 80%;
+    margin-bottom: 1rem;
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+    position: relative;
+  }
+
+  .message-user {
+    align-self: flex-end;
+    background-color: #0d6efd;
+    color: white;
+    border-bottom-right-radius: 0.25rem;
+  }
+
+  .message-assistant {
+    align-self: flex-start;
+    background-color: #e9ecef;
+    border-bottom-left-radius: 0.25rem;
+  }
+
+  .message-system {
+    align-self: center;
+    background-color: #fff3cd;
+    font-style: italic;
+  }
+
+  /* Typing indicator */
+  .typing-indicator {
+    align-self: flex-start;
+    background-color: #e9ecef;
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    display: none;
+  }
+
+  .typing-indicator span {
+    height: 8px;
+    width: 8px;
+    background-color: #6c757d;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 3px;
+    animation: bounce 1.5s infinite ease-in-out;
+  }
+
+  .typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
+  }
+
+  /* Chat input area */
+  .chat-input-container {
+    border-top: 1px solid #dee2e6;
+    padding: 1rem;
+    background-color: white;
+  }
+
+  /* Tool execution indicator */
+  .tool-execution {
+    align-self: center;
+    background-color: #cfe2ff;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    max-width: 90%;
+    display: none;
+  }
+
+  /* Video panel */
+  .video-container {
+    position: relative;
+    width: 100%;
+    height: 0;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  }
+
+  .video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Transcript styles */
+  .transcript-container {
+    margin: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    font-size: 0.875rem;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .transcript-segment {
+    margin-bottom: 0.5rem;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+  }
+
+  .transcript-segment.active {
+    background-color: rgba(13, 110, 253, 0.1);
+    border-left: 3px solid #0d6efd;
+  }
+
+  /* Quiz styles */
+  .quiz-container {
+    margin: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+
+  .quiz-question {
+    margin-bottom: 1.5rem;
+  }
+
+  .quiz-options label {
+    display: block;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .quiz-options label:hover {
+    background-color: #e9ecef;
+  }
+
+  .quiz-options input[type="radio"] {
+    margin-right: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+  <div class="chat-container">
+    <!-- Chat messages area -->
+    <div id="chat-messages" class="chat-messages"
+         hx-ext="ws"
+         ws-connect="/ws/chat/{{ conversation.id }}/">
+
+      <!-- Messages will be loaded and appended here -->
+      {% block messages %}
+        {% include "tutor/partials/messages.html" %}
+      {% endblock %}
+
+      <!-- Typing indicator -->
+      <div id="typing-indicator" class="typing-indicator">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+
+      <!-- Tool execution indicator -->
+      <div id="tool-execution" class="tool-execution">
+        <div class="d-flex align-items-center">
+          <div class="spinner-border spinner-border-sm me-2" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <span id="tool-execution-text">Processing request...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content panel for video, transcript, etc. -->
+    <div id="content-panel" class="content-panel">
+      {% block content_panel %}
+        <!-- Will be populated with video, transcript, or quiz content -->
+        <div class="p-4">
+          <h2 class="h4 mb-3">Toki Pona Learning Assistant</h2>
+          <p>Welcome to your Toki Pona learning session! Ask me questions about Toki Pona, request video recommendations, or practice your skills with interactive exercises.</p>
+
+          <div class="mt-4">
+            <h3 class="h5">Suggested topics:</h3>
+            <ul>
+              <li>Basic vocabulary and phrases</li>
+              <li>Grammar rules and sentence structure</li>
+              <li>Listening comprehension practice</li>
+              <li>Translation exercises</li>
+            </ul>
+          </div>
+        </div>
+      {% endblock %}
+    </div>
+  </div>
+
+  <!-- Chat input area -->
+  <div class="chat-input-container">
+    <form id="chat-form" hx-post="{% url 'tutor:send_message' conversation.id %}"
+          hx-trigger="submit" hx-target="#chat-messages" hx-swap="beforeend">
+      <div class="input-group">
+        <input type="text" id="message-input" name="message" class="form-control"
+               placeholder="Type your message here..." required autocomplete="off">
+        <button class="btn btn-primary" type="submit">
+          <i class="bi bi-send"></i>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const messagesContainer = document.getElementById('chat-messages');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const toolExecution = document.getElementById('tool-execution');
+    const messageInput = document.getElementById('message-input');
+    const chatForm = document.getElementById('chat-form');
+
+    // Auto-scroll to bottom of messages
+    function scrollToBottom() {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Call on page load
+    scrollToBottom();
+
+    // Listen for new messages and scroll down
+    messagesContainer.addEventListener('htmx:afterSwap', scrollToBottom);
+
+    // Clear input after sending message
+    chatForm.addEventListener('htmx:beforeRequest', function(e) {
+      // Disable the input while sending
+      messageInput.disabled = true;
+    });
+
+    chatForm.addEventListener('htmx:afterRequest', function(e) {
+      // Re-enable and clear the input
+      messageInput.disabled = false;
+      messageInput.value = '';
+      messageInput.focus();
+    });
+
+    // WebSocket message handlers
+    document.body.addEventListener('ws:message', function(event) {
+      const data = JSON.parse(event.detail.message);
+
+      switch (data.type) {
+        case 'typing':
+          // Show/hide typing indicator
+          typingIndicator.style.display = data.is_typing ? 'block' : 'none';
+          scrollToBottom();
+          break;
+
+        case 'tool':
+          // Show tool execution status
+          const toolText = document.getElementById('tool-execution-text');
+          if (data.status === 'started') {
+            toolText.innerText = `Running: ${data.tool_name}...`;
+            toolExecution.style.display = 'block';
+          } else if (data.status === 'completed') {
+            toolText.innerText = `Completed: ${data.tool_name}`;
+            // Hide after a short delay
+            setTimeout(() => {
+              toolExecution.style.display = 'none';
+            }, 3000);
+          }
+          scrollToBottom();
+          break;
+
+        case 'video':
+          // Update video panel
+          const contentPanel = document.getElementById('content-panel');
+          contentPanel.innerHTML = data.html;
+          break;
+      }
+    });
+  });
+</script>
+{% endblock %}

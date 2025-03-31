@@ -1,0 +1,47 @@
+<div class="bg-light p-3 rounded">
+    <h3 class="h5 mb-3">Learning Feedback</h3>
+
+    <div class="mb-3">
+      <p>Your performance on this quiz was <strong>{{ performance }}</strong> with a score of <strong>{{ score|floatformat:0 }}%</strong> ({{ correct_count }} out of {{ total_count }} correct).</p>
+    </div>
+
+    {% if improvement_areas %}
+      <div class="mb-3">
+        <h4 class="h6">Areas to Focus On:</h4>
+        <ul class="mb-0">
+          {% for area in improvement_areas %}
+            <li>{{ area|title }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <div class="mb-3">
+      <h4 class="h6">Next Steps:</h4>
+      <ul class="mb-0">
+        {% if score < 60 %}
+          <li>Review the basic concepts covered in this video</li>
+          <li>Practice with more beginner-level content</li>
+          <li>Focus on building your vocabulary</li>
+        {% elif score < 80 %}
+          <li>Continue practicing with similar content</li>
+          <li>Try some translation exercises for reinforcement</li>
+          <li>Ask the assistant for more examples of challenging concepts</li>
+        {% else %}
+          <li>You're doing great! Consider moving to more challenging material</li>
+          <li>Practice using these concepts in conversation</li>
+          <li>Try teaching these concepts to reinforce your understanding</li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div class="d-grid">
+      <button class="btn btn-primary" hx-post="{% url 'tutor:send_message' conversation.id %}"
+              hx-vals='{"message": "I'd like additional practice on {% if improvement_areas %}{{ improvement_areas.0 }}{% else %}toki pona{% endif %}"}'
+              hx-trigger="click"
+              hx-target="#chat-messages"
+              hx-swap="beforeend">
+        Request Targeted Practice
+      </button>
+    </div>
+  </div>

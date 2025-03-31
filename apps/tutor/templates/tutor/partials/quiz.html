@@ -1,0 +1,92 @@
+<div class="quiz-container">
+    <h2 class="h5 mb-3">{{ quiz.title }}</h2>
+
+    <div class="badge bg-{% if quiz.difficulty == 'beginner' %}success{% elif quiz.difficulty == 'intermediate' %}primary{% else %}warning{% endif %} mb-3">
+      {{ quiz.difficulty|title }} Level
+    </div>
+
+    {% if not quiz_attempt.completed_at %}
+      <!-- Quiz form -->
+      <form id="quiz-form" hx-post="{% url 'tutor:submit_quiz' %}" hx-target="#quiz-tab-pane" hx-swap="innerHTML">
+        <input type="hidden" name="quiz_id" value="{{ quiz.id }}">
+        <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+
+        {% for question in quiz.questions %}
+          <div class="quiz-question" id="question-{{ forloop.counter }}">
+            <h3 class="h6">{{ forloop.counter }}. {{ question.question }}</h3>
+
+            <div class="quiz-options">
+              {% for option in question.options %}
+                <label>
+                  <input type="radio" name="answer_{{ forloop.parentloop.counter0 }}" value="{{ forloop.counter0 }}" required>
+                  {{ option }}
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+
+        <div class="d-grid mt-4">
+          <button type="submit" class="btn btn-primary">
+            Submit Answers
+          </button>
+        </div>
+      </form>
+    {% else %}
+      <!-- Quiz results -->
+      <div class="alert alert-info mb-4">
+        <h3 class="h6 mb-2">Quiz Results</h3>
+        <p class="mb-1">You scored <strong>{{ quiz_attempt.score }}%</strong></p>
+        <p class="mb-0">
+          <small>{{ quiz_attempt.correct_count }} correct out of {{ quiz.questions|length }} questions</small>
+        </p>
+      </div>
+
+      <!-- Display questions with answers -->
+      {% for question in quiz.questions %}
+        <div class="quiz-question" id="question-{{ forloop.counter }}">
+          <h3 class="h6">{{ forloop.counter }}. {{ question.question }}</h3>
+
+          <div class="quiz-options">
+            {% for option in question.options %}
+              <div class="{% if forloop.counter0 == question.correct_answer %}text-success{% endif %}
+                          {% if forloop.counter0 == quiz_attempt.user_answers|get_item:forloop.parentloop.counter0 and forloop.counter0 != question.correct_answer %}text-danger{% endif %}">
+                {{ option }}
+                {% if forloop.counter0 == question.correct_answer %}
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                {% endif %}
+                {% if forloop.counter0 == quiz_attempt.user_answers|get_item:forloop.parentloop.counter0 and forloop.counter0 != question.correct_answer %}
+                  <i class="bi bi-x-circle-fill text-danger"></i>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+
+          {% if question.explanation %}
+            <div class="mt-2">
+              <small class="text-muted">{{ question.explanation }}</small>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      <div class="d-grid gap-2 mt-4">
+        <button type="button" class="btn btn-outline-primary"
+                hx-post="{% url 'tutor:generate_quiz' %}"
+                hx-target="#quiz-tab-pane"
+                hx-swap="innerHTML"
+                hx-vals='{"video_id": "{{ video.video_id }}", "conversation_id": "{{ conversation.id }}", "difficulty": "{{ quiz.difficulty }}"}'>
+          Try Another Quiz
+        </button>
+
+        <button type="button" class="btn btn-outline-secondary"
+                hx-get="{% url 'tutor:get_feedback' quiz_attempt.id %}"
+                hx-target="#feedback-container"
+                hx-swap="innerHTML">
+          Get Learning Feedback
+        </button>
+      </div>
+
+      <div id="feedback-container" class="mt-4"></div>
+    {% endif %}
+  </div>
