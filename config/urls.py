@@ -8,7 +8,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     path("dashboard/", include("apps.dashboard.urls")),
-    path("listening/", include("apps.listening.urls")),
+    path("tutor/", include("apps.tutor.urls")),
     path("writing/", include("apps.writing.urls")),
     path("signing/", include("apps.signing.urls")),
     # Redirect the root URL to the dashboard
