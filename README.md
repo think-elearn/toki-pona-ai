@@ -53,15 +53,34 @@ git clone https://github.com/think-elearn/toki-pona-ai.git
 cd toki-pona-ai
 ```
 
-### Step 2: Start Docker Compose with your API keys
+### Step 2: Set up environment variables
 
-Both the Anthropic API key and YouTube API key are required for the tutor module functionality. To start the application with your API keys:
+The application requires several environment variables to function properly. The most important ones are:
+
+- `ANTHROPIC_API_KEY`: Required for the AI tutor module
+- `YOUTUBE_API_KEY`: Required for video search functionality in the tutor module
+
+You can set these variables in two ways:
+
+#### Option A: Use environment variables directly (recommended)
+
+This is the most secure approach as your API keys won't be stored in any files:
 
 ```bash
 ANTHROPIC_API_KEY=your_anthropic_api_key YOUTUBE_API_KEY=your_youtube_api_key docker compose -f compose.dev.yaml up --build
 ```
 
-This will:
+#### Option B: Create a local .env file
+
+Copy the example environment file and edit it with your API keys:
+
+```bash
+cp .env.example .env
+# Edit .env and add your API keys
+docker compose -f compose.dev.yaml up --build
+```
+
+Starting the application with either method will:
 
 - Build the Docker image with all required dependencies
 - Configure the application with your API keys
@@ -78,10 +97,14 @@ The setup process is fully automated and will ensure the application is 100% fun
 If you need to restart the application later, you can use:
 
 ```bash
+# If using environment variables directly
 ANTHROPIC_API_KEY=your_anthropic_api_key YOUTUBE_API_KEY=your_youtube_api_key docker compose -f compose.dev.yaml up
+
+# If using a .env file
+docker compose -f compose.dev.yaml up
 ```
 
-This approach avoids storing your API key in any files, keeping it secure and preventing accidental commits to version control.
+Using environment variables directly avoids storing your API keys in any files, keeping them secure and preventing accidental commits to version control.
 
 ### Step 3: Access the application
 
@@ -131,7 +154,8 @@ Create a `.env` file in the project root:
 ```bash
 echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/toki_pona_db
 SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')
-ANTROPIC_API_KEY=your_anthropic_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+YOUTUBE_API_KEY=your_youtube_api_key
 DEBUG=True" > .env
 ```
 
