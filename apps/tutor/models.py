@@ -64,11 +64,11 @@ class Conversation(models.Model):
     # Metadata about conversation state
     state = models.JSONField(default=dict, blank=True)
 
-    def __str__(self):
-        return f"{self.title} ({self.user.username})"
-
     class Meta:
         ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.user.username})"
 
 
 class Message(models.Model):
@@ -90,11 +90,11 @@ class Message(models.Model):
     tool_input = models.JSONField(null=True, blank=True)
     tool_output = models.JSONField(null=True, blank=True)
 
-    def __str__(self):
-        return f"{self.role} message in {self.conversation.title}"
-
     class Meta:
         ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.role} message in {self.conversation.title}"
 
 
 class VideoResource(models.Model):
