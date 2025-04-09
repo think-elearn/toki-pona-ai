@@ -23,10 +23,19 @@ def handle_search_videos(tool_call, conversation, youtube_service):
     """Handle the search_youtube_videos tool call."""
     result = None
     try:
+        logger.info(f"Searching YouTube with query: {tool_call['input']}")
         result = youtube_service.search_videos(**tool_call["input"])
+        logger.info(f"YouTube search returned {len(result) if result else 0} results")
+
         if result:
             conversation.state["search_results"] = result
             conversation.save(update_fields=["state"])
+
+            # Debug response format
+            for i, video in enumerate(result[:2]):  # Log first 2 videos as examples
+                logger.info(
+                    f"Video {i + 1}: {video.get('title', 'Unknown')} ({video.get('id', 'Unknown ID')})"
+                )
         else:
             result = {
                 "error": "No videos found matching your query. Please try a different search."
@@ -209,15 +218,33 @@ def process_user_message(conversation_id, user_id, message):
                 )
                 tool_message.tool_output = result
                 tool_message.save()
-                async_to_sync(channel_layer.group_send)(
-                    f"chat_{conversation_id}",
-                    {
-                        "type": "tool_execution",
-                        "tool_name": tool_call["name"],
-                        "status": "completed",
-                        "data": result,
-                    },
-                )
+                # Check if result contains an error
+                if isinstance(result, dict) and "error" in result:
+                    error_message = (
+                        f"Error using {tool_call['name']}: {result['error']}"
+                    )
+                    logger.warning(error_message)
+                    # Send error status
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{conversation_id}",
+                        {
+                            "type": "tool_execution",
+                            "tool_name": tool_call["name"],
+                            "status": "error",
+                            "error": error_message,
+                        },
+                    )
+                else:
+                    # Send completed status
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{conversation_id}",
+                        {
+                            "type": "tool_execution",
+                            "tool_name": tool_call["name"],
+                            "status": "completed",
+                            "data": result,
+                        },
+                    )
 
         final_response = response.get("response_text", "")
         if not final_response and response.get("tool_calls"):
