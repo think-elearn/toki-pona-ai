@@ -9,42 +9,79 @@ primary_region = 'yyz'
   DJANGO_SETTINGS_MODULE = 'config.settings.production'
   PORT = '8000'
   PYTHONUNBUFFERED = '1'
+  DATABASE_CHECK_DISABLED = 'true'
 
-[http_service]
+# Web application service
+[[services]]
+  http_checks = []
   internal_port = 8000
-  force_https = true
-  auto_stop_machines = 'stop'
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
+  processes = ["app"]
+  protocol = "tcp"
+  script_checks = []
 
-[services.concurrency]
-  type = "connections"
-  hard_limit = 1000
-  soft_limit = 500
+  [services.concurrency]
+    hard_limit = 1000
+    soft_limit = 500
+    type = "connections"
 
-[[services.ports]]
-  port = 443
-  handlers = ['tls', 'http']
+  [[services.ports]]
+    force_https = true
+    handlers = ["http"]
+    port = 80
 
-[[services.ports]]
-  port = 80
-  handlers = ['http']
-  force_https = true
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    grace_period = "1s"
+    interval = "15s"
+    restart_limit = 0
+    timeout = "2s"
+
+# Celery worker service
+[[services]]
+  http_checks = []
+  internal_port = 8001
+  processes = ["worker"]
+  protocol = "tcp"
+  script_checks = []
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 8001
+    internal_only = true
+
+# Celery beat service
+[[services]]
+  http_checks = []
+  internal_port = 8002
+  processes = ["beat"]
+  protocol = "tcp"
+  script_checks = []
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 8002
+    internal_only = true
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
+  cpu_kind = "shared"
   cpus = 1
+  memory = "1gb"
 
 [[statics]]
-  guest_path = '/app/staticfiles'
-  url_prefix = '/static'
+  guest_path = "/app/staticfiles"
+  url_prefix = "/static"
 
-[deploy]
-  release_command = "python manage.py migrate --noinput"
+# Skip deploy section entirely to avoid release command timeout issues
+# All necessary setup will happen in the app process's entrypoint.prod.sh
 
 [processes]
-  app = "daphne -b 0.0.0.0 -p 8000 project.asgi:application"
-  worker = "celery -A project worker --loglevel=info"
-  beat = "celery -A project beat --loglevel=info"
+  app = "daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+  worker = "celery -A config worker --loglevel=info"
+  beat = "celery -A config beat --loglevel=info"
+
+[experimental]
+  allowed_public_ports = []
+  auto_rollback = true
