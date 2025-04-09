@@ -18,7 +18,7 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body hx-headers='{"x-csrftoken": "{{ csrf_token }}"}'>
     <header>
         {% include "base/navbar.html" %}
     </header>
@@ -48,7 +48,8 @@
 
     <!-- HTMX and WebSocket extension -->
     <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.2/dist/ext/ws.js"></script>
+    <!-- Remove WebSocket extension - we'll implement our own -->
+    <!-- <script src="https://unpkg.com/htmx.org@1.9.2/dist/ext/ws.js"></script> -->
 
     <!-- Custom JS -->
     <script src="{% static 'js/main.js' %}"></script>
