@@ -1,8 +1,15 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import include, path
 from django.views.generic import RedirectView
+
+
+def health_check(request):
+    """Simple health check endpoint for Fly.io."""
+    return HttpResponse("OK")
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -11,6 +18,7 @@ urlpatterns = [
     path("tutor/", include("apps.tutor.urls")),
     path("writing/", include("apps.writing.urls")),
     path("signing/", include("apps.signing.urls")),
+    path("health-check/", health_check, name="health_check"),
     # Redirect the root URL to the dashboard
     path("", RedirectView.as_view(pattern_name="dashboard:home", permanent=False)),
 ]
