@@ -75,7 +75,6 @@ class Message(models.Model):
     class MessageRole(models.TextChoices):
         USER = "user", "User"
         ASSISTANT = "assistant", "Assistant"
-        SYSTEM = "system", "System"
 
     conversation = models.ForeignKey(
         Conversation, related_name="messages", on_delete=models.CASCADE
