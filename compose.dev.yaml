@@ -26,6 +26,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     volumes:
+      # Mount everything except .env file
       - .:/app
       # Use named volumes for media data to persist between container rebuilds
       - media_data:/app/media
@@ -44,8 +45,31 @@ services:
       - DJANGO_SUPERUSER_USERNAME=admin
       - DJANGO_SUPERUSER_PASSWORD=admin
       - DJANGO_SUPERUSER_EMAIL=admin@example.com
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
 
   redis:
     image: redis:6
     ports:
       - "6379:6379"
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: python -m celery -A config worker --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/toki_pona_db
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+      - DEBUG=True
+      - SECRET_KEY=dev-key-replace-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+      - REDIS_URL=redis://redis:6379/0
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}

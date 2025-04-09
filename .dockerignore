@@ -1,5 +1,6 @@
 .git
 .github
+# Ignore .env - we'll use environment variables
 .env
 *.pyc
 __pycache__/
@@ -27,3 +28,10 @@ staticfiles/
 .venv/
 venv/
 ENV/
+CLAUDE.md
+*.DS_Store
+*.sqlite3
+*.sqlite
+*.db
+*.log
+*.coverage

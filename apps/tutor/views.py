@@ -15,6 +15,7 @@ from .models import (
     TokiPonaPhrase,
     VideoResource,
 )
+from .tasks import process_user_message
 
 
 @login_required
@@ -67,7 +68,7 @@ def exercise(request, pk):
 @login_required
 def check_translation(request):
     """HTMX endpoint to check a submitted translation."""
-    if request.method == "POST" and request.headers.get("HX-Request"):
+    if request.method == "POST" and request.htmx:
         phrase_id = request.POST.get("phrase_id")
         translation = request.POST.get("translation", "").strip()
 
@@ -243,6 +244,13 @@ def send_message(request, conversation_id):
     # Update conversation timestamp
     conversation.updated_at = timezone.now()
     conversation.save(update_fields=["updated_at"])
+
+    # Process the message using Celery task
+    process_user_message.delay(
+        conversation_id=conversation.id,
+        user_id=request.user.id,
+        message=message_text,
+    )
 
     # Return the rendered message template
     return render(request, "tutor/partials/message.html", {"message": message})

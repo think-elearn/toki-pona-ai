@@ -5,6 +5,7 @@ from celery import shared_task
 from channels.layers import get_channel_layer
 from django.contrib.auth.models import User
 from django.template.loader import render_to_string
+from django.utils.safestring import mark_safe
 
 from .models import (
     Conversation,
@@ -18,50 +19,84 @@ from .services import ClaudeService, YouTubeService
 logger = logging.getLogger(__name__)
 
 
-def execute_tool_call(
-    tool_call, conversation, channel_layer, claude_service, youtube_service
-):
-    """Helper function to execute a tool call."""
+def handle_search_videos(tool_call, conversation, youtube_service):
+    """Handle the search_youtube_videos tool call."""
     result = None
-
-    if tool_call["name"] == "search_youtube_videos":
+    try:
+        logger.info(f"Searching YouTube with query: {tool_call['input']}")
         result = youtube_service.search_videos(**tool_call["input"])
-        conversation.state["search_results"] = result
-        conversation.save(update_fields=["state"])
+        logger.info(f"YouTube search returned {len(result) if result else 0} results")
 
-    elif tool_call["name"] == "get_video_content":
+        if result:
+            conversation.state["search_results"] = result
+            conversation.save(update_fields=["state"])
+
+            # Debug response format
+            for i, video in enumerate(result[:2]):  # Log first 2 videos as examples
+                logger.info(
+                    f"Video {i + 1}: {video.get('title', 'Unknown')} ({video.get('id', 'Unknown ID')})"
+                )
+        else:
+            result = {
+                "error": "No videos found matching your query. Please try a different search."
+            }
+    except Exception as e:
+        logger.error(f"Error executing search_youtube_videos: {str(e)}")
+        result = {"error": f"Failed to search videos: {str(e)}"}
+
+    return result
+
+
+def handle_video_content(tool_call, conversation, channel_layer, youtube_service):
+    """Handle the get_video_content tool call."""
+    result = None
+    try:
         result = youtube_service.get_video_content(**tool_call["input"])
-        conversation.state["current_video_id"] = tool_call["input"]["video_id"]
-        conversation.save(update_fields=["state"])
+        if "error" not in result:
+            conversation.state["current_video_id"] = tool_call["input"]["video_id"]
+            conversation.save(update_fields=["state"])
+    except Exception as e:
+        logger.error(f"Error executing get_video_content: {str(e)}")
+        return {"error": f"Failed to get video content: {str(e)}"}
 
-        video_data = {
+    # Only proceed with video panel if we have valid video data
+    if not isinstance(result, dict) or "error" in result:
+        return result
+
+    video_data = {
+        "video_id": tool_call["input"]["video_id"],
+        "title": result.get("title", ""),
+        "channel": result.get("channel", ""),
+        "duration": result.get("duration", ""),
+        "transcript": result.get("transcript", ""),
+    }
+
+    video_html = render_to_string(
+        "tutor/partials/video_panel.html",
+        {"video": video_data, "conversation": conversation},
+    )
+
+    async_to_sync(channel_layer.group_send)(
+        f"chat_{conversation.id}",
+        {
+            "type": "video_panel",
+            "html": video_html,
             "video_id": tool_call["input"]["video_id"],
-            "title": result.get("title", ""),
-            "channel": result.get("channel", ""),
-            "duration": result.get("duration", ""),
-            "transcript": result.get("transcript", ""),
-        }
+        },
+    )
 
-        video_html = render_to_string(
-            "tutor/partials/video_panel.html",
-            {"video": video_data, "conversation": conversation},
-        )
+    process_video_transcript.delay(
+        video_id=tool_call["input"]["video_id"],
+        conversation_id=conversation.id,
+    )
 
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{conversation.id}",
-            {
-                "type": "video_panel",
-                "html": video_html,
-                "video_id": tool_call["input"]["video_id"],
-            },
-        )
+    return result
 
-        process_video_transcript.delay(
-            video_id=tool_call["input"]["video_id"],
-            conversation_id=conversation.id,
-        )
 
-    elif tool_call["name"] == "extract_vocabulary":
+def handle_extract_vocabulary(tool_call, conversation, claude_service):
+    """Handle the extract_vocabulary tool call."""
+    result = None
+    try:
         transcript_text = tool_call["input"].get("transcript")
         if not transcript_text and conversation.state.get("current_video_id"):
             try:
@@ -71,19 +106,65 @@ def execute_tool_call(
                 if hasattr(video, "transcript"):
                     transcript_text = video.transcript.content
             except VideoResource.DoesNotExist:
-                pass
+                return {"error": "Video not found in database"}
 
         if transcript_text:
             result = claude_service.extract_vocabulary(transcript_text)
-            conversation.state["vocabulary"] = result
-            conversation.save(update_fields=["state"])
+            if result:
+                conversation.state["vocabulary"] = result
+                conversation.save(update_fields=["state"])
+            else:
+                result = {"error": "Could not extract vocabulary from transcript"}
+        else:
+            result = {"error": "No transcript text available to extract vocabulary"}
+    except Exception as e:
+        logger.error(f"Error executing extract_vocabulary: {str(e)}")
+        result = {"error": f"Failed to extract vocabulary: {str(e)}"}
 
-    elif tool_call["name"] == "generate_quiz":
+    return result
+
+
+def handle_generate_quiz(tool_call, conversation):
+    """Handle the generate_quiz tool call."""
+    result = None
+    try:
         result = generate_quiz_task(
             conversation_id=conversation.id, **tool_call["input"]
         )
+        if not result or "error" in result:
+            logger.error(
+                f"Quiz generation error: {result.get('error', 'Unknown error')}"
+            )
+    except Exception as e:
+        logger.error(f"Error executing generate_quiz: {str(e)}")
+        result = {"error": f"Failed to generate quiz: {str(e)}"}
 
     return result
+
+
+def execute_tool_call(
+    tool_call, conversation, channel_layer, claude_service, youtube_service
+):
+    """Helper function to execute a tool call."""
+    logger.info(
+        f"Executing tool call: {tool_call['name']} with input: {tool_call['input']}"
+    )
+
+    tool_name = tool_call["name"]
+
+    if tool_name == "search_youtube_videos":
+        return handle_search_videos(tool_call, conversation, youtube_service)
+    elif tool_name == "get_video_content":
+        return handle_video_content(
+            tool_call, conversation, channel_layer, youtube_service
+        )
+    elif tool_name == "extract_vocabulary":
+        return handle_extract_vocabulary(tool_call, conversation, claude_service)
+    elif tool_name == "generate_quiz":
+        return handle_generate_quiz(tool_call, conversation)
+
+    # Return None for unhandled tool calls
+    return None
 
 
 @shared_task
@@ -93,12 +174,24 @@ def process_user_message(conversation_id, user_id, message):
     channel_layer = get_channel_layer()
 
     try:
+        # Send typing indicator to show that the AI is thinking
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{conversation_id}",
+            {"type": "typing_indicator", "is_typing": True},
+        )
+
         claude_service = ClaudeService()
         youtube_service = YouTubeService()
         conversation_history = list(conversation.messages.order_by("created_at"))
         response = claude_service.generate_response(conversation_history, message)
 
         if response.get("tool_calls"):
+            # Show typing indicator during tool execution
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{conversation_id}",
+                {"type": "typing_indicator", "is_typing": True},
+            )
+
             for tool_call in response["tool_calls"]:
                 tool_message = Message.objects.create(
                     conversation=conversation,
@@ -125,15 +218,33 @@ def process_user_message(conversation_id, user_id, message):
                 )
                 tool_message.tool_output = result
                 tool_message.save()
-                async_to_sync(channel_layer.group_send)(
-                    f"chat_{conversation_id}",
-                    {
-                        "type": "tool_execution",
-                        "tool_name": tool_call["name"],
-                        "status": "completed",
-                        "data": result,
-                    },
-                )
+                # Check if result contains an error
+                if isinstance(result, dict) and "error" in result:
+                    error_message = (
+                        f"Error using {tool_call['name']}: {result['error']}"
+                    )
+                    logger.warning(error_message)
+                    # Send error status
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{conversation_id}",
+                        {
+                            "type": "tool_execution",
+                            "tool_name": tool_call["name"],
+                            "status": "error",
+                            "error": error_message,
+                        },
+                    )
+                else:
+                    # Send completed status
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{conversation_id}",
+                        {
+                            "type": "tool_execution",
+                            "tool_name": tool_call["name"],
+                            "status": "completed",
+                            "data": result,
+                        },
+                    )
 
         final_response = response.get("response_text", "")
         if not final_response and response.get("tool_calls"):
@@ -141,17 +252,28 @@ def process_user_message(conversation_id, user_id, message):
                 conversation_history
             )
 
+        # Make the response safe for HTML display
+        safe_response = mark_safe(final_response)
+
         assistant_message = Message.objects.create(
-            conversation=conversation, role="assistant", content=final_response
+            conversation=conversation, role="assistant", content=safe_response
         )
+
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{conversation_id}", {"type": "typing_indicator", "is_typing": False}
+        )
+
+        # Then send the assistant's message through the channel layer
+        message_html = render_to_string(
+            "tutor/partials/message.html", {"message": assistant_message}
+        )
+
         async_to_sync(channel_layer.group_send)(
             f"chat_{conversation_id}",
             {
                 "type": "chat_message",
-                "message": final_response,
-                "username": "assistant",
+                "html": message_html,
                 "message_id": assistant_message.id,
-                "timestamp": assistant_message.created_at.isoformat(),
             },
         )
         update_learning_progress.delay(user_id, conversation_id)
@@ -159,24 +281,30 @@ def process_user_message(conversation_id, user_id, message):
     except Exception as e:
         logger.error(f"Error processing message: {str(e)}")
 
+        error_text = f"Sorry, there was an error processing your request: {str(e)}"
+        safe_error = mark_safe(error_text)
+
         error_message = Message.objects.create(
             conversation=conversation,
-            role="system",
-            content="Sorry, there was an error processing your request. Please try again.",
+            role="assistant",
+            content=safe_error,
         )
 
         async_to_sync(channel_layer.group_send)(
             f"chat_{conversation_id}", {"type": "typing_indicator", "is_typing": False}
         )
 
+        # Send error message with HTML
+        error_html = render_to_string(
+            "tutor/partials/message.html", {"message": error_message}
+        )
+
         async_to_sync(channel_layer.group_send)(
             f"chat_{conversation_id}",
             {
                 "type": "chat_message",
-                "message": error_message.content,
-                "username": "system",
+                "html": error_html,
                 "message_id": error_message.id,
-                "timestamp": error_message.created_at.isoformat(),
             },
         )
 

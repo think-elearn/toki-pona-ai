@@ -112,6 +112,13 @@
     display: none;
   }
 
+  /* Tool error state */
+  .tool-execution.tool-error {
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+    color: #842029;
+  }
+
   /* Video panel */
   .video-container {
     position: relative;
@@ -186,9 +193,7 @@
 <div class="container-fluid p-0">
   <div class="chat-container">
     <!-- Chat messages area -->
-    <div id="chat-messages" class="chat-messages"
-         hx-ext="ws"
-         ws-connect="/ws/chat/{{ conversation.id }}/">
+    <div id="chat-messages" class="chat-messages">
 
       <!-- Messages will be loaded and appended here -->
       {% block messages %}
@@ -196,7 +201,7 @@
       {% endblock %}
 
       <!-- Typing indicator -->
-      <div id="typing-indicator" class="typing-indicator">
+      <div id="typing-indicator" class="typing-indicator" style="display: none;">
         <span></span>
         <span></span>
         <span></span>
@@ -254,11 +259,13 @@
 {% block extra_js %}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // Initialize variables
     const messagesContainer = document.getElementById('chat-messages');
     const typingIndicator = document.getElementById('typing-indicator');
     const toolExecution = document.getElementById('tool-execution');
     const messageInput = document.getElementById('message-input');
     const chatForm = document.getElementById('chat-form');
+    const wsConnection = document.getElementById('ws-connection');
 
     // Auto-scroll to bottom of messages
     function scrollToBottom() {
@@ -284,40 +291,73 @@
       messageInput.focus();
     });
 
-    // WebSocket message handlers
-    document.body.addEventListener('ws:message', function(event) {
-      const data = JSON.parse(event.detail.message);
+    // Setup WebSocket connection
+    const socket = new WebSocket(`ws://${window.location.host}/ws/chat/{{ conversation.id }}/`);
 
-      switch (data.type) {
-        case 'typing':
+    // WebSocket event handlers
+    socket.onopen = function(e) {
+      console.log('WebSocket connection established');
+    };
+
+    socket.onmessage = function(event) {
+      console.log('WebSocket message received:', event.data);
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'message') {
+          // Add message to chat area directly
+          const messageDiv = document.createElement('div');
+          messageDiv.innerHTML = data.html;
+          messagesContainer.appendChild(messageDiv);
+          scrollToBottom();
+        }
+        else if (data.type === 'typing') {
           // Show/hide typing indicator
           typingIndicator.style.display = data.is_typing ? 'block' : 'none';
+          if (data.is_typing) {
+            // Move the typing indicator to the end of the messages container
+            messagesContainer.appendChild(typingIndicator);
+          }
           scrollToBottom();
-          break;
-
-        case 'tool':
+        }
+        else if (data.type === 'tool') {
           // Show tool execution status
           const toolText = document.getElementById('tool-execution-text');
           if (data.status === 'started') {
-            toolText.innerText = `Running: ${data.tool_name}...`;
+            toolText.innerText = 'Running: ' + data.tool_name + '...';
             toolExecution.style.display = 'block';
+            toolExecution.className = 'tool-execution'; // Reset class
           } else if (data.status === 'completed') {
-            toolText.innerText = `Completed: ${data.tool_name}`;
+            toolText.innerText = 'Completed: ' + data.tool_name;
             // Hide after a short delay
-            setTimeout(() => {
+            setTimeout(function() {
               toolExecution.style.display = 'none';
             }, 3000);
+          } else if (data.status === 'error') {
+            toolText.innerText = data.error || ('Error using: ' + data.tool_name);
+            toolExecution.className = 'tool-execution tool-error';
+            // Add error message to chat
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'message message-system';
+            errorDiv.innerHTML = '<div><em>' + (data.error || 'There was an error using ' + data.tool_name) + '</em></div>';
+            messagesContainer.appendChild(errorDiv);
+            // Hide tool execution after delay
+            setTimeout(function() {
+              toolExecution.style.display = 'none';
+            }, 5000);
           }
           scrollToBottom();
-          break;
-
-        case 'video':
+        }
+        // Handle video panel updates
+        else if (data.type === 'video') {
           // Update video panel
           const contentPanel = document.getElementById('content-panel');
           contentPanel.innerHTML = data.html;
-          break;
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
       }
-    });
+    };
   });
 </script>
 {% endblock %}
