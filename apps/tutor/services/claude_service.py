@@ -135,11 +135,13 @@ class ClaudeService:
             List of message dictionaries for Claude API
         """
         formatted_messages = []
+        tool_call_ids = {}  # Track tool call IDs for correct pairing
 
         # Format each message in the conversation history
-        for message in conversation_history:
-            # Skip any system role messages as they should be in the system parameter
-            if message.role == "system":
+        for i, message in enumerate(conversation_history):
+            # Skip messages with invalid roles (Claude only accepts 'user' and 'assistant')
+            if message.role not in ["user", "assistant"]:
+                logger.warning(f"Skipping message with invalid role: {message.role}")
                 continue
 
             # Handle regular text messages
@@ -151,13 +153,15 @@ class ClaudeService:
             else:
                 if message.role == "assistant":
                     # Tool call by assistant
+                    tool_id = f"tool_{message.id}"
+                    tool_call_ids[message.id] = tool_id
                     formatted_messages.append(
                         {
                             "role": "assistant",
                             "content": [
                                 {
                                     "type": "tool_use",
-                                    "id": f"tool_{message.id}",
+                                    "id": tool_id,
                                     "name": message.tool_name,
                                     "input": message.tool_input,
                                 }
@@ -165,23 +169,146 @@ class ClaudeService:
                         }
                     )
                 elif message.role == "user" and message.tool_output:
-                    # Tool result from user
-                    formatted_messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": f"tool_{message.id - 1}",  # Assumes tool results directly follow tool calls
-                                    "content": json.dumps(message.tool_output),
-                                }
-                            ],
-                        }
-                    )
+                    # Find the corresponding tool call message
+                    tool_call_message = None
+                    # Look for the tool call this result responds to
+                    for j in range(i - 1, -1, -1):
+                        prev_msg = conversation_history[j]
+                        if (
+                            prev_msg.is_tool_call
+                            and prev_msg.role == "assistant"
+                            and prev_msg.tool_name == message.tool_name
+                        ):
+                            tool_call_message = prev_msg
+                            break
+
+                    if tool_call_message:
+                        tool_use_id = tool_call_ids.get(
+                            tool_call_message.id, f"tool_{tool_call_message.id}"
+                        )
+                        formatted_messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "tool_result",
+                                        "tool_use_id": tool_use_id,
+                                        "content": (
+                                            json.dumps(message.tool_output)
+                                            if isinstance(
+                                                message.tool_output, (dict, list)
+                                            )
+                                            else str(message.tool_output)
+                                        ),
+                                    }
+                                ],
+                            }
+                        )
+                    else:
+                        # If we can't find the tool call, log a warning and skip this message
+                        logger.warning(
+                            f"Could not find matching tool call for result with ID {message.id}"
+                        )
+                        continue
 
         # Log the message count to help with debugging
         logger.info(f"Formatted {len(formatted_messages)} messages for Claude API")
         return formatted_messages
+
+    def _collect_tool_ids(
+        self, formatted_messages: List[Dict[str, Any]]
+    ) -> tuple[dict, dict]:
+        """
+        Collect tool_use and tool_result IDs from messages.
+
+        Args:
+            formatted_messages: List of formatted message dictionaries
+
+        Returns:
+            A tuple of (tool_use_ids, tool_result_refs) dictionaries
+        """
+        tool_use_ids = {}  # Maps index to ID
+        tool_result_refs = {}  # Maps index to tool_use ID it refers to
+
+        for i, msg in enumerate(formatted_messages):
+            if msg["role"] == "assistant" and isinstance(msg.get("content"), list):
+                for content_item in msg["content"]:
+                    if content_item.get("type") == "tool_use":
+                        tool_use_ids[i] = content_item.get("id")
+
+            elif msg["role"] == "user" and isinstance(msg.get("content"), list):
+                for content_item in msg["content"]:
+                    if content_item.get("type") == "tool_result":
+                        tool_result_refs[i] = content_item.get("tool_use_id")
+
+        return tool_use_ids, tool_result_refs
+
+    def _identify_skip_indices(
+        self, tool_use_ids: dict, tool_result_refs: dict, total_messages: int
+    ) -> set:
+        """
+        Identify which message indices should be skipped.
+
+        Args:
+            tool_use_ids: Dictionary mapping message index to tool_use ID
+            tool_result_refs: Dictionary mapping message index to referenced tool_use ID
+            total_messages: Total number of messages
+
+        Returns:
+            Set of indices to skip
+        """
+        skip_indices = set()
+
+        # Check for tool_use messages without matching tool_result
+        for i, msg_id in tool_use_ids.items():
+            if msg_id not in tool_result_refs.values():
+                # This tool_use has no matching tool_result - skip it
+                logger.warning(
+                    f"Skipping tool_use at index {i} with ID {msg_id} - no matching tool_result"
+                )
+                skip_indices.add(i)
+            elif i == total_messages - 1:
+                # Tool call at the end with no chance for a result - skip it
+                logger.warning(
+                    f"Skipping final tool_use at index {i} with ID {msg_id} - no room for tool_result"
+                )
+                skip_indices.add(i)
+
+        return skip_indices
+
+    def _sanitize_formatted_messages(
+        self, formatted_messages: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Ensures that tool_use and tool_result messages are properly paired.
+        The Claude API requires that every tool_use message must be followed by a tool_result message.
+
+        Args:
+            formatted_messages: List of formatted message dictionaries
+
+        Returns:
+            A sanitized list of message dictionaries with proper tool_use/tool_result pairing
+        """
+        if not formatted_messages:
+            return []
+
+        # Collect tool IDs from messages
+        tool_use_ids, tool_result_refs = self._collect_tool_ids(formatted_messages)
+
+        # Identify indices to skip
+        skip_indices = self._identify_skip_indices(
+            tool_use_ids, tool_result_refs, len(formatted_messages)
+        )
+
+        # Build the sanitized list
+        sanitized_messages = [
+            msg for i, msg in enumerate(formatted_messages) if i not in skip_indices
+        ]
+
+        logger.info(
+            f"Sanitized messages from {len(formatted_messages)} to {len(sanitized_messages)}"
+        )
+        return sanitized_messages
 
     def generate_response(
         self, conversation_history: List[Message], new_message: Optional[str] = None
@@ -204,8 +331,18 @@ class ClaudeService:
             if new_message:
                 messages.append(Message(role="user", content=new_message))
 
-            # Format messages for Claude API
+            # For simplicity, when there's a new message, only use the last few messages
+            # This helps avoid issues with unpaired tool calls from previous conversations
+            if new_message and len(messages) > 5:
+                # Keep only the most recent messages
+                messages = messages[-5:]
+                logger.info(f"Trimmed conversation history to {len(messages)} messages")
+
+            # Format messages for Claude API - first try with all messages
             formatted_messages = self._format_messages(messages)
+
+            # Ensure tool_use and tool_result are properly paired
+            formatted_messages = self._sanitize_formatted_messages(formatted_messages)
 
             # Call Claude API with tools
             response = self.client.messages.create(
