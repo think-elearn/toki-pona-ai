@@ -55,11 +55,11 @@ RUN if [ ! -f .env ]; then \
     fi
 
 # Copy entrypoint script
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY entrypoint.dev.sh /app/entrypoint.dev.sh
+RUN chmod +x /app/entrypoint.dev.sh
 
 # Expose port
 EXPOSE 8000
 
 # Set entrypoint
-CMD ["/app/entrypoint.sh"]
+CMD ["/app/entrypoint.dev.sh"]
