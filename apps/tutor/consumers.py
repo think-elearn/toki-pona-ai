@@ -115,12 +115,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         """Send chat message to WebSocket."""
-        message_html = await self.render_message_html(
-            content=event["message"],
-            role="user" if event.get("username") == self.user.username else "assistant",
-            message_id=event.get("message_id"),
-            timestamp=event.get("timestamp"),
-        )
+        if "html" in event:
+            # Use pre-rendered HTML if provided
+            message_html = event["html"]
+        else:
+            # Otherwise render from parameters
+            message_html = await self.render_message_html(
+                content=event["message"],
+                role="user"
+                if event.get("username") == self.user.username
+                else "assistant",
+                message_id=event.get("message_id"),
+                timestamp=event.get("timestamp"),
+            )
 
         # Send message to WebSocket
         await self.send(text_data=json.dumps({"type": "message", "html": message_html}))
