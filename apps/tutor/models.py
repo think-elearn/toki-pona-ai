@@ -1,6 +1,5 @@
 from django.contrib.auth.models import User
 from django.db import models
-from pgvector.django import HnswIndex, VectorField
 
 
 class TokiPonaPhrase(models.Model):
@@ -133,9 +132,6 @@ class Transcript(models.Model):
     language = models.CharField(max_length=10, default="en")
     is_generated = models.BooleanField(default=False)
     has_embeddings = models.BooleanField(default=False)
-    embeddings = VectorField(
-        dimensions=1536, null=True
-    )  # For storing vector embeddings
 
     # Store processed segments for easy retrieval
     segments = models.JSONField(default=list)
@@ -145,17 +141,6 @@ class Transcript(models.Model):
         indexes = [
             # Standard index for the foreign key
             models.Index(fields=["video"]),
-            # HNSW index for faster approximate nearest neighbor search
-            # Better than IVFFlat for production with read-heavy workloads
-            HnswIndex(
-                name="transcript_embeddings_hnsw_idx",
-                fields=["embeddings"],
-                m=16,  # Number of connections per element
-                ef_construction=64,  # Size of dynamic candidate list for construction
-                opclasses=[
-                    "vector_cosine_ops"
-                ],  # Cosine distance is often best for text embeddings
-            ),
         ]
 
     def __str__(self):
