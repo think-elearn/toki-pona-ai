@@ -112,6 +112,13 @@
     display: none;
   }
 
+  /* Tool error state */
+  .tool-execution.tool-error {
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+    color: #842029;
+  }
+
   /* Video panel */
   .video-container {
     position: relative;
@@ -319,12 +326,25 @@
           if (data.status === 'started') {
             toolText.innerText = 'Running: ' + data.tool_name + '...';
             toolExecution.style.display = 'block';
+            toolExecution.className = 'tool-execution'; // Reset class
           } else if (data.status === 'completed') {
             toolText.innerText = 'Completed: ' + data.tool_name;
             // Hide after a short delay
             setTimeout(function() {
               toolExecution.style.display = 'none';
             }, 3000);
+          } else if (data.status === 'error') {
+            toolText.innerText = data.error || ('Error using: ' + data.tool_name);
+            toolExecution.className = 'tool-execution tool-error';
+            // Add error message to chat
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'message message-system';
+            errorDiv.innerHTML = '<div><em>' + (data.error || 'There was an error using ' + data.tool_name) + '</em></div>';
+            messagesContainer.appendChild(errorDiv);
+            // Hide tool execution after delay
+            setTimeout(function() {
+              toolExecution.style.display = 'none';
+            }, 5000);
           }
           scrollToBottom();
         }
