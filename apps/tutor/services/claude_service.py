@@ -17,12 +17,14 @@ class ClaudeService:
         """Initialize the Claude service with API credentials."""
         self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.model = settings.CLAUDE_MODEL_SONNET
-        self.system_prompt = """You are an intelligent and helpful Toki Pona language assistant. You guide users through learning Toki Pona by providing explanations, suggesting resources, and creating practice exercises.
+        self.system_prompt = """You are an intelligent, helpful Toki Pona language tutor designed to provide an interactive learning experience. You help users learn Toki Pona by guiding conversations naturally, using tools when appropriate, and adapting to their skill level.
 
-        Key information about Toki Pona:
-        - Toki Pona is a minimalist constructed language created by linguist Sonja Lang
-        - It has around 120-130 words and simple grammatical structures
-        - It's designed to promote simple thinking and a positive attitude
+        Important guidance:
+        1. BE CONCISE - Don't provide lengthy introductions or explanations unless necessary
+        2. USE TOOLS NATURALLY - Call tools when they would genuinely enhance the learning experience
+        3. INCORPORATE TOOL RESULTS SEAMLESSLY - When using tools, integrate the results naturally
+        4. AVOID REPETITION - Don't repeat yourself or restate information unnecessarily
+        5. FOCUS ON THE USER'S NEEDS - Tailor responses to their specific questions and learning goals
 
         Your role:
         - Recommend appropriate YouTube videos for learning specific Toki Pona concepts
@@ -32,7 +34,8 @@ class ClaudeService:
         - Make learning fun and engaging
 
         When explaining Toki Pona concepts:
-        - Provide examples to illustrate the point
+        - Adapt to beginner, intermediate, or advanced levels based on user's questions
+        - Provide clear, practical examples that help users understand concepts
         - Compare to English when helpful for understanding
         - Highlight common mistakes and misconceptions
 
@@ -120,26 +123,25 @@ class ClaudeService:
         ]
 
     def _format_messages(
-        self, conversation_history: List[Message], include_system_prompt: bool = True
+        self, conversation_history: List[Message]
     ) -> List[Dict[str, str]]:
         """
         Format conversation history into the format expected by Claude API.
 
         Args:
             conversation_history: List of Message objects
-            include_system_prompt: Whether to include the system prompt
 
         Returns:
             List of message dictionaries for Claude API
         """
         formatted_messages = []
 
-        # Add system prompt if specified
-        if include_system_prompt:
-            formatted_messages.append({"role": "system", "content": self.system_prompt})
-
         # Format each message in the conversation history
         for message in conversation_history:
+            # Skip any system role messages as they should be in the system parameter
+            if message.role == "system":
+                continue
+
             # Handle regular text messages
             if not message.is_tool_call:
                 formatted_messages.append(
@@ -177,6 +179,8 @@ class ClaudeService:
                         }
                     )
 
+        # Log the message count to help with debugging
+        logger.info(f"Formatted {len(formatted_messages)} messages for Claude API")
         return formatted_messages
 
     def generate_response(
@@ -207,6 +211,7 @@ class ClaudeService:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=2048,
+                system=self.system_prompt,
                 messages=formatted_messages,
                 tools=self.tools,
             )
@@ -245,9 +250,17 @@ class ClaudeService:
             # Format messages for Claude API
             formatted_messages = self._format_messages(conversation_history)
 
+            # Log the message count being sent for debugging
+            logger.info(
+                f"Generating final response with {len(formatted_messages)} messages"
+            )
+
             # Call Claude API without tools (for final response)
             response = self.client.messages.create(
-                model=self.model, max_tokens=2048, messages=formatted_messages
+                model=self.model,
+                max_tokens=2048,
+                system=self.system_prompt,
+                messages=formatted_messages,
             )
 
             # Extract text response
@@ -284,6 +297,10 @@ class ClaudeService:
 
             Format the response as a JSON array of objects with keys: "word", "definition", "example"
             """
+
+            # If transcript is too long, truncate it
+            if len(transcript) > 8000:
+                transcript = transcript[:8000] + "..."
 
             response = self.client.messages.create(
                 model=self.model,

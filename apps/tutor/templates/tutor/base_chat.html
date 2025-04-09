@@ -307,6 +307,10 @@
         else if (data.type === 'typing') {
           // Show/hide typing indicator
           typingIndicator.style.display = data.is_typing ? 'block' : 'none';
+          if (data.is_typing) {
+            // Move the typing indicator to the end of the messages container
+            messagesContainer.appendChild(typingIndicator);
+          }
           scrollToBottom();
         }
         else if (data.type === 'tool') {

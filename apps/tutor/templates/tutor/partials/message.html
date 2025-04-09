@@ -7,7 +7,7 @@
 {% else %}
   <div class="message message-{{ message.role }}">
     {% if message.role == "assistant" %}
-      <div>{{ message.content|linebreaksbr }}</div>
+      <div>{{ message.content|safe }}</div>
     {% elif message.role == "user" %}
       <div>{{ message.content }}</div>
     {% elif message.role == "system" %}
