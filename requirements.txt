@@ -86,7 +86,6 @@ opencv-contrib-python==4.11.0.86
 opencv-python==4.11.0.86
 opt-einsum==3.4.0
 packaging==24.2
-pgvector==0.4.0
 pillow==11.1.0
 platformdirs==4.3.6
 pluggy==1.5.0
