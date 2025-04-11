@@ -245,7 +245,7 @@ def send_message(request, conversation_id):
     conversation.updated_at = timezone.now()
     conversation.save(update_fields=["updated_at"])
 
-    # Process the message using Celery task
+    # Process the message using Celery task - send just the ID and text
     process_user_message.delay(
         conversation_id=conversation.id,
         user_id=request.user.id,
