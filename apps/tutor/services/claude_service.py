@@ -17,35 +17,17 @@ class ClaudeService:
         """Initialize the Claude service with API credentials."""
         self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.model = settings.CLAUDE_MODEL_SONNET
-        self.system_prompt = """You are an intelligent, helpful Toki Pona language tutor designed to provide an interactive learning experience. You help users learn Toki Pona by guiding conversations naturally, using tools when appropriate, and adapting to their skill level.
+        self.system_prompt = """You are an intelligent, helpful Toki Pona language tutor designed to provide an interactive learning experience.
 
         Important guidance:
         1. BE CONCISE - Don't provide lengthy introductions or explanations unless necessary
         2. USE TOOLS NATURALLY - Call tools when appropriate for the learning experience
         3. INCORPORATE TOOL RESULTS SEAMLESSLY - When using tools, integrate the results naturally
-        4. AVOID REPETITION - Don't repeat yourself or restate information unnecessarily
-        5. FOCUS ON THE USER'S NEEDS - Tailor responses to their specific questions and learning goals
 
-        Your role:
-        - Recommend appropriate YouTube videos for learning specific Toki Pona concepts using the search_youtube_videos tool
-        - Explain grammar rules and vocabulary in clear, concise terms
-        - Create quizzes and practice exercises tailored to the user's level using the generate_quiz tool
-        - Provide accurate, helpful feedback on user's translations
-        - Make learning fun and engaging
-
-        When explaining Toki Pona concepts:
-        - Adapt to beginner, intermediate, or advanced levels based on user's questions
-        - Provide clear, practical examples that help users understand concepts
-        - Compare to English when helpful for understanding
-        - Highlight common mistakes and misconceptions
-
-        Always follow the Toki Pona learning workflow, guiding the conversation naturally through topic selection, content exploration, practice, and assessment.
-
-        Important Guidance for Tool Usage:
-        1. When a user asks about Toki Pona concepts, grammar, or vocabulary, use the search_youtube_videos tool to find relevant educational videos.
-        2. When a user selects a video, use the get_video_content tool to retrieve and analyze the video content.
-        3. After retrieving video content, use the extract_vocabulary tool to identify and explain key Toki Pona words.
-        4. When a user wants to test their knowledge, use the generate_quiz tool to create appropriate questions.
+        When users ask about Toki Pona topics, use the search_youtube_videos tool to find relevant educational videos.
+        When a user selects a video, use the get_video_content tool to retrieve and analyze the video content.
+        After retrieving video content, use the extract_vocabulary tool to identify key Toki Pona words.
+        When a user wants to test their knowledge, use the generate_quiz tool to create appropriate questions.
         """
 
         # Define the tools we'll use
@@ -118,10 +100,6 @@ class ClaudeService:
                             "type": "string",
                             "description": "YouTube video ID to generate quiz from",
                         },
-                        "transcript": {
-                            "type": "string",
-                            "description": "Transcript text to use for quiz generation",
-                        },
                     },
                     "required": [],
                 },
@@ -140,81 +118,35 @@ class ClaudeService:
         Returns:
             List of message dictionaries for Claude API
         """
+        # Simplified - just use regular messages without tool calls at first
         formatted_messages = []
-        tool_use_counter = 0  # Counter for unique tool_use IDs
 
-        # Process regular messages first
+        # Process regular messages
+        seen_contents = set()  # To prevent duplication
+
         for message in conversation_history:
             if message.role not in ["user", "assistant"]:
                 continue  # Skip system messages
 
             if not message.is_tool_call:
+                # Prevent duplicate messages
+                if message.content in seen_contents:
+                    continue
+
                 formatted_messages.append(
                     {"role": message.role, "content": message.content}
                 )
-
-        # Now, collect and format tool calls and their results
-        i = 0
-        while i < len(conversation_history):
-            message = conversation_history[i]
-
-            # We only care about tool calls from the assistant
-            if message.is_tool_call and message.role == "assistant":
-                # Generate a unique tool_use_id
-                tool_use_id = f"tool_use_{tool_use_counter}"
-                tool_use_counter += 1
-
-                # Create the tool_use message
-                tool_use_message = {
-                    "role": "assistant",
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": tool_use_id,
-                            "name": message.tool_name,
-                            "input": message.tool_input,
-                        }
-                    ],
-                }
-
-                # Look ahead for the corresponding tool result
-                found_result = False
-                for j in range(i + 1, len(conversation_history)):
-                    result_message = conversation_history[j]
-                    if (
-                        result_message.is_tool_call
-                        and result_message.role == "user"
-                        and result_message.tool_name == message.tool_name
-                    ):
-                        # Found the matching result
-                        tool_result_message = {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": tool_use_id,
-                                    "content": json.dumps(result_message.tool_output),
-                                }
-                            ],
-                        }
-
-                        # Add both messages to formatted_messages
-                        formatted_messages.append(tool_use_message)
-                        formatted_messages.append(tool_result_message)
-                        found_result = True
-                        break
-
-                # If no result was found, we'll skip this tool call
-                if not found_result:
-                    logger.warning(
-                        f"No matching tool result found for tool call: {message.tool_name}"
-                    )
-
-            i += 1
+                seen_contents.add(message.content)
 
         # Log the message count to help with debugging
         logger.info(f"Formatted {len(formatted_messages)} messages for Claude API")
-        logger.debug(f"Formatted messages: {formatted_messages}")
+
+        # To debug message content being sent to Claude
+        message_texts = [
+            f"{m['role']}: {m['content'][:50]}..." for m in formatted_messages
+        ]
+        logger.debug(f"Messages being sent to Claude: {message_texts}")
+
         return formatted_messages
 
     def generate_response(
@@ -238,18 +170,13 @@ class ClaudeService:
             if new_message:
                 messages.append(Message(role="user", content=new_message))
 
-            # For simplicity and to improve context, limit to the last 10 messages
-            if len(messages) > 10:
-                messages = messages[-10:]
+            # For simplicity, limit to the last 5 messages
+            if len(messages) > 5:
+                messages = messages[-5:]
                 logger.info(f"Trimmed conversation history to {len(messages)} messages")
 
             # Format messages for Claude API
             formatted_messages = self._format_messages(messages)
-
-            # Log the formatted messages for debugging
-            logger.debug(
-                f"Sending {len(formatted_messages)} formatted messages to Claude"
-            )
 
             # Call Claude API with tools
             response = self.client.messages.create(
@@ -293,19 +220,23 @@ class ClaudeService:
             Final response text
         """
         try:
-            # Format messages for Claude API
-            formatted_messages = self._format_messages(conversation_history)
+            # Format messages for Claude API - but only include regular messages, no tool calls
+            regular_messages = [
+                msg for msg in conversation_history if not msg.is_tool_call
+            ]
+            formatted_messages = self._format_messages(regular_messages)
 
-            # Log the message count being sent for debugging
-            logger.info(
-                f"Generating final response with {len(formatted_messages)} messages"
+            # Add a simple system message to encourage Claude to summarize the results
+            system_prompt = (
+                self.system_prompt
+                + "\n\nTool results have been processed. Please provide a helpful response to the user based on the conversation."
             )
 
             # Call Claude API without tools (for final response)
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=2048,
-                system=self.system_prompt,
+                system=system_prompt,
                 messages=formatted_messages,
             )
 
