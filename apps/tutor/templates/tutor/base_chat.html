@@ -60,6 +60,21 @@
     font-style: italic;
   }
 
+  /* Styling for links in assistant messages */
+  .message-assistant a {
+    color: #0d6efd;
+    text-decoration: underline;
+  }
+
+  /* Styling for markdown-like formatting */
+  .message-assistant strong {
+    font-weight: bold;
+  }
+
+  .message-assistant em {
+    font-style: italic;
+  }
+
   /* Typing indicator */
   .typing-indicator {
     align-self: flex-start;
@@ -265,7 +280,6 @@
     const toolExecution = document.getElementById('tool-execution');
     const messageInput = document.getElementById('message-input');
     const chatForm = document.getElementById('chat-form');
-    const wsConnection = document.getElementById('ws-connection');
 
     // Auto-scroll to bottom of messages
     function scrollToBottom() {
@@ -277,6 +291,10 @@
 
     // Listen for new messages and scroll down
     messagesContainer.addEventListener('htmx:afterSwap', scrollToBottom);
+
+    // Also scroll after any content changes
+    const observer = new MutationObserver(scrollToBottom);
+    observer.observe(messagesContainer, { childList: true, subtree: true });
 
     // Clear input after sending message
     chatForm.addEventListener('htmx:beforeRequest', function(e) {
@@ -292,7 +310,8 @@
     });
 
     // Setup WebSocket connection
-    const socket = new WebSocket(`ws://${window.location.host}/ws/chat/{{ conversation.id }}/`);
+    const wsScheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const socket = new WebSocket(`${wsScheme}${window.location.host}/ws/chat/{{ conversation.id }}/`);
 
     // WebSocket event handlers
     socket.onopen = function(e) {
@@ -300,7 +319,7 @@
     };
 
     socket.onmessage = function(event) {
-      console.log('WebSocket message received:', event.data);
+      console.log('WebSocket message received');
       try {
         const data = JSON.parse(event.data);
 
@@ -358,6 +377,58 @@
         console.error('Error processing WebSocket message:', error);
       }
     };
+
+    socket.onerror = function(e) {
+      console.error('WebSocket error:', e);
+    };
+
+    socket.onclose = function(e) {
+      console.log('WebSocket connection closed:', e.code);
+      // Optional: try to reconnect after a delay if the connection was closed unexpectedly
+      if (e.code !== 1000) { // Normal closure
+        setTimeout(function() {
+          console.log('Attempting to reconnect...');
+          const newSocket = new WebSocket(`${wsScheme}${window.location.host}/ws/chat/{{ conversation.id }}/`);
+          socket = newSocket;
+        }, 3000);
+      }
+    };
+
+    // Function to format URLs in messages as links
+    function formatMessagesWithLinks() {
+      const assistantMessages = document.querySelectorAll('.message-assistant div');
+
+      assistantMessages.forEach(message => {
+        // Replace URLs with actual links
+        if (message.innerHTML) {
+          // URL regex that matches http/https URLs
+          const urlRegex = /(https?:\/\/[^\s]+)/g;
+          message.innerHTML = message.innerHTML.replace(urlRegex, function(url) {
+            return `<a href="${url}" target="_blank">${url}</a>`;
+          });
+
+          // Format YouTube URLs specially
+          const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^\s&]+)/g;
+          message.innerHTML = message.innerHTML.replace(youtubeRegex, function(match, videoId) {
+            const fullUrl = match.startsWith('http') ? match : 'https://' + match;
+            return `<a href="${fullUrl}" target="_blank" class="youtube-link">${fullUrl}</a>`;
+          });
+        }
+      });
+    }
+
+    // Format links in existing messages
+    formatMessagesWithLinks();
+
+    // Set up a MutationObserver to format links in new messages
+    const linkObserver = new MutationObserver(function(mutations) {
+      formatMessagesWithLinks();
+    });
+
+    linkObserver.observe(messagesContainer, {
+      childList: true,
+      subtree: true
+    });
   });
 </script>
 {% endblock %}
