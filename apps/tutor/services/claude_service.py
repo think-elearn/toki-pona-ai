@@ -106,49 +106,6 @@ class ClaudeService:
             },
         ]
 
-    def _format_messages(
-        self, conversation_history: List[Message]
-    ) -> List[Dict[str, Any]]:
-        """
-        Format conversation history into the format expected by Claude API.
-
-        Args:
-            conversation_history: List of Message objects
-
-        Returns:
-            List of message dictionaries for Claude API
-        """
-        # Simplified - just use regular messages without tool calls at first
-        formatted_messages = []
-
-        # Process regular messages
-        seen_contents = set()  # To prevent duplication
-
-        for message in conversation_history:
-            if message.role not in ["user", "assistant"]:
-                continue  # Skip system messages
-
-            if not message.is_tool_call:
-                # Prevent duplicate messages
-                if message.content in seen_contents:
-                    continue
-
-                formatted_messages.append(
-                    {"role": message.role, "content": message.content}
-                )
-                seen_contents.add(message.content)
-
-        # Log the message count to help with debugging
-        logger.info(f"Formatted {len(formatted_messages)} messages for Claude API")
-
-        # To debug message content being sent to Claude
-        message_texts = [
-            f"{m['role']}: {m['content'][:50]}..." for m in formatted_messages
-        ]
-        logger.debug(f"Messages being sent to Claude: {message_texts}")
-
-        return formatted_messages
-
     def generate_response(
         self, conversation_history: List[Message], new_message: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -163,20 +120,30 @@ class ClaudeService:
             Dict containing response text and/or tool calls
         """
         try:
-            # Create a copy of conversation history to avoid modifying the original
-            messages = list(conversation_history)
+            # Format messages manually to avoid duplication
+            formatted_messages = []
 
-            # If a new message is provided, add it to the history
+            # Add user message directly if provided - this is the simplest approach
             if new_message:
-                messages.append(Message(role="user", content=new_message))
+                formatted_messages.append({"role": "user", "content": new_message})
+            else:
+                # Just get the last few messages to avoid duplicates
+                unique_messages = {}
+                for msg in conversation_history[-5:]:  # Only use last 5 messages
+                    if msg.role in ["user", "assistant"] and not msg.is_tool_call:
+                        # Use content as key to avoid duplicates
+                        unique_messages[msg.content] = {
+                            "role": msg.role,
+                            "content": msg.content,
+                        }
 
-            # For simplicity, limit to the last 5 messages
-            if len(messages) > 5:
-                messages = messages[-5:]
-                logger.info(f"Trimmed conversation history to {len(messages)} messages")
+                # Convert to list
+                formatted_messages = list(unique_messages.values())
 
-            # Format messages for Claude API
-            formatted_messages = self._format_messages(messages)
+            # Log what we're sending
+            logger.info(f"Sending {len(formatted_messages)} messages to Claude")
+            if len(formatted_messages) > 0:
+                logger.info(f"Last message: {formatted_messages[-1]}")
 
             # Call Claude API with tools
             response = self.client.messages.create(
@@ -209,6 +176,66 @@ class ClaudeService:
                 "tool_calls": [],
             }
 
+    def _prepare_messages_for_final_response(
+        self, conversation_history: List[Message]
+    ) -> List[Dict[str, str]]:
+        """
+        Extract and format messages for the final response.
+
+        Args:
+            conversation_history: List of Message objects
+
+        Returns:
+            List of formatted messages for Claude API
+        """
+        user_messages = []
+        assistant_messages = []
+
+        # Get the last few non-tool messages
+        for msg in conversation_history[-10:]:  # Last 10 messages
+            if not msg.is_tool_call:
+                if msg.role == "user":
+                    user_messages.append({"role": "user", "content": msg.content})
+                elif msg.role == "assistant":
+                    assistant_messages.append(
+                        {"role": "assistant", "content": msg.content}
+                    )
+
+        # Only include the last message from each role to avoid duplication
+        formatted_messages = []
+        if user_messages:
+            formatted_messages.append(user_messages[-1])
+        if assistant_messages:
+            formatted_messages.append(assistant_messages[-1])
+
+        # Add a final user prompt if no messages
+        if not formatted_messages:
+            formatted_messages.append(
+                {
+                    "role": "user",
+                    "content": "Please summarize what we've learned about Toki Pona.",
+                }
+            )
+
+        return formatted_messages
+
+    def _extract_response_text(self, response) -> str:
+        """
+        Extract text from Claude API response.
+
+        Args:
+            response: Response from Claude API
+
+        Returns:
+            Extracted text response
+        """
+        for content_item in response.content:
+            if content_item.type == "text":
+                return content_item.text
+
+        logger.warning("No text response received from Claude")
+        return ""
+
     def generate_final_response(self, conversation_history: List[Message]) -> str:
         """
         Generate a final response after tool execution.
@@ -220,35 +247,23 @@ class ClaudeService:
             Final response text
         """
         try:
-            # Format messages for Claude API - but only include regular messages, no tool calls
-            regular_messages = [
-                msg for msg in conversation_history if not msg.is_tool_call
-            ]
-            formatted_messages = self._format_messages(regular_messages)
-
-            # Add a simple system message to encourage Claude to summarize the results
-            system_prompt = (
-                self.system_prompt
-                + "\n\nTool results have been processed. Please provide a helpful response to the user based on the conversation."
+            # Prepare messages for API call
+            formatted_messages = self._prepare_messages_for_final_response(
+                conversation_history
             )
 
             # Call Claude API without tools (for final response)
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=2048,
-                system=system_prompt,
+                system=self.system_prompt,
                 messages=formatted_messages,
             )
 
             # Extract text response
-            response_text = ""
-            for content_item in response.content:
-                if content_item.type == "text":
-                    response_text = content_item.text
-                    break
+            response_text = self._extract_response_text(response)
 
             if not response_text:
-                logger.warning("No text response received from Claude")
                 return "I'm not sure how to respond to that."
 
             return response_text
