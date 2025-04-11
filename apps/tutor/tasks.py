@@ -5,7 +5,6 @@ from celery import shared_task
 from channels.layers import get_channel_layer
 from django.contrib.auth.models import User
 from django.template.loader import render_to_string
-from django.utils.safestring import mark_safe
 
 from .models import (
     Conversation,
@@ -323,36 +322,28 @@ def process_user_message(conversation_id, user_id, message):
             {"type": "typing_indicator", "is_typing": True},
         )
 
+        # Initialize services
         claude_service = ClaudeService()
         youtube_service = YouTubeService()
 
-        # Get just the relevant conversation history - keeping it simple
-        conversation_history = list(
-            conversation.messages.order_by("created_at").filter(is_tool_call=False)
-        )
+        # Get response directly using just the message text
+        # Avoid using conversation history here to prevent duplication
+        response = claude_service.generate_response([], message)
 
-        # Generate initial response
-        response = claude_service.generate_response(conversation_history, message)
-
-        # Handle tool calls first if any
+        # Handle tool calls if any
         if response.get("tool_calls"):
-            # Show typing indicator during tool execution
-            async_to_sync(channel_layer.group_send)(
-                f"chat_{conversation_id}",
-                {"type": "typing_indicator", "is_typing": True},
-            )
-
             for tool_call in response["tool_calls"]:
-                # Send a message that a tool is being called
-                tool_status_message = Message.objects.create(
+                tool_name = tool_call["name"]
+
+                # Send status message about tool use
+                status_message = Message.objects.create(
                     conversation=conversation,
                     role="assistant",
-                    content=f"Searching for information on {tool_call['name'].replace('_', ' ')}...",
+                    content="I'm searching for information about Toki Pona...",
                 )
 
-                # Send the status message
                 status_html = render_to_string(
-                    "tutor/partials/message.html", {"message": tool_status_message}
+                    "tutor/partials/message.html", {"message": status_message}
                 )
 
                 async_to_sync(channel_layer.group_send)(
@@ -360,157 +351,88 @@ def process_user_message(conversation_id, user_id, message):
                     {
                         "type": "chat_message",
                         "html": status_html,
-                        "message_id": tool_status_message.id,
+                        "message_id": status_message.id,
                     },
                 )
 
-                # Notify about tool execution status
-                async_to_sync(channel_layer.group_send)(
-                    f"chat_{conversation_id}",
-                    {
-                        "type": "tool_execution",
-                        "tool_name": tool_call["name"],
-                        "status": "started",
-                    },
-                )
+                # Execute the appropriate tool
+                if tool_name == "search_youtube_videos":
+                    # Search for videos
+                    try:
+                        videos = youtube_service.search_videos(**tool_call["input"])
 
-                # Create tool call message in database
-                tool_message = Message.objects.create(
-                    conversation=conversation,
-                    role="assistant",
-                    content="",
-                    is_tool_call=True,
-                    tool_name=tool_call["name"],
-                    tool_input=tool_call["input"],
-                )
+                        if videos:
+                            # Format video results
+                            message_text = "Here are some Toki Pona learning videos that might help:\n\n"
+                            for i, video in enumerate(videos[:5], 1):
+                                message_text += f"{i}. **{video.get('title')}** by {video.get('channel')}\n"
+                                message_text += f"   Duration: {video.get('duration')} | [Watch on YouTube]({video.get('url')})\n\n"
 
-                # Execute the tool
-                result = execute_tool_call(
-                    tool_call,
-                    conversation,
-                    channel_layer,
-                    claude_service,
-                    youtube_service,
-                )
+                            # Store in conversation state
+                            conversation.state["search_results"] = videos
+                            conversation.save(update_fields=["state"])
+                        else:
+                            message_text = "I couldn't find any relevant Toki Pona videos. Let's try a different approach."
+                    except Exception as e:
+                        message_text = (
+                            f"I encountered an error searching for videos: {str(e)}"
+                        )
 
-                # Save tool result
-                tool_message.tool_output = result
-                tool_message.save()
-
-                # Create tool result message
-                Message.objects.create(
-                    conversation=conversation,
-                    role="user",
-                    content="",
-                    is_tool_call=True,
-                    tool_name=tool_call["name"],
-                    tool_output=result,
-                )
-
-                # Handle result status
-                if isinstance(result, dict) and "error" in result:
-                    error_message = (
-                        f"Error using {tool_call['name']}: {result['error']}"
-                    )
-                    logger.warning(error_message)
-
-                    # Send error message to the chat
-                    error_msg = Message.objects.create(
+                    # Send message with results
+                    results_message = Message.objects.create(
                         conversation=conversation,
                         role="assistant",
-                        content=f"I encountered an error while searching: {result['error']}. Let's try a different approach.",
+                        content=message_text,
                     )
 
-                    error_html = render_to_string(
-                        "tutor/partials/message.html", {"message": error_msg}
+                    results_html = render_to_string(
+                        "tutor/partials/message.html", {"message": results_message}
                     )
 
                     async_to_sync(channel_layer.group_send)(
                         f"chat_{conversation_id}",
                         {
                             "type": "chat_message",
-                            "html": error_html,
-                            "message_id": error_msg.id,
+                            "html": results_html,
+                            "message_id": results_message.id,
                         },
                     )
 
-                    # Send error status
-                    async_to_sync(channel_layer.group_send)(
-                        f"chat_{conversation_id}",
-                        {
-                            "type": "tool_execution",
-                            "tool_name": tool_call["name"],
-                            "status": "error",
-                            "error": error_message,
-                        },
-                    )
-                else:
-                    # Send completed status
-                    async_to_sync(channel_layer.group_send)(
-                        f"chat_{conversation_id}",
-                        {
-                            "type": "tool_execution",
-                            "tool_name": tool_call["name"],
-                            "status": "completed",
-                            "data": result,
-                        },
-                    )
-
-            # Create a final response if needed
-            final_response = response.get("response_text", "")
-            if not final_response:
-                logger.info(
-                    "No initial response text, skipping final response generation"
-                )
-            else:
-                # Make the response safe for HTML display
-                safe_response = mark_safe(final_response)
-
-                # Create the assistant message
-                assistant_message = Message.objects.create(
-                    conversation=conversation, role="assistant", content=safe_response
+                # Record tool usage
+                Message.objects.create(
+                    conversation=conversation,
+                    role="assistant",
+                    content="",
+                    is_tool_call=True,
+                    tool_name=tool_name,
+                    tool_input=tool_call["input"],
                 )
 
-                # Render and send the message
-                message_html = render_to_string(
-                    "tutor/partials/message.html", {"message": assistant_message}
-                )
+        # Send final response if there's text content
+        if response.get("response_text"):
+            final_message = Message.objects.create(
+                conversation=conversation,
+                role="assistant",
+                content=response["response_text"],
+            )
 
-                async_to_sync(channel_layer.group_send)(
-                    f"chat_{conversation_id}",
-                    {
-                        "type": "chat_message",
-                        "html": message_html,
-                        "message_id": assistant_message.id,
-                    },
-                )
-        else:
-            # If there are no tool calls, just send the response
-            if response.get("response_text"):
-                # Make the response safe for HTML display
-                safe_response = mark_safe(response.get("response_text", ""))
+            final_html = render_to_string(
+                "tutor/partials/message.html", {"message": final_message}
+            )
 
-                assistant_message = Message.objects.create(
-                    conversation=conversation, role="assistant", content=safe_response
-                )
-
-                # Render and send the message
-                message_html = render_to_string(
-                    "tutor/partials/message.html", {"message": assistant_message}
-                )
-
-                async_to_sync(channel_layer.group_send)(
-                    f"chat_{conversation_id}",
-                    {
-                        "type": "chat_message",
-                        "html": message_html,
-                        "message_id": assistant_message.id,
-                    },
-                )
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{conversation_id}",
+                {
+                    "type": "chat_message",
+                    "html": final_html,
+                    "message_id": final_message.id,
+                },
+            )
 
         # Turn off typing indicator
         async_to_sync(channel_layer.group_send)(
-            f"chat_{conversation_id}", {"type": "typing_indicator", "is_typing": False}
+            f"chat_{conversation_id}",
+            {"type": "typing_indicator", "is_typing": False},
         )
 
         # Update learning progress
@@ -519,20 +441,13 @@ def process_user_message(conversation_id, user_id, message):
     except Exception as e:
         logger.error(f"Error processing message: {str(e)}", exc_info=True)
 
-        error_text = f"Sorry, there was an error processing your request: {str(e)}"
-        safe_error = mark_safe(error_text)
-
+        # Send error message
         error_message = Message.objects.create(
             conversation=conversation,
             role="assistant",
-            content=safe_error,
+            content=f"Sorry, I encountered an error: {str(e)}",
         )
 
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{conversation_id}", {"type": "typing_indicator", "is_typing": False}
-        )
-
-        # Send error message with HTML
         error_html = render_to_string(
             "tutor/partials/message.html", {"message": error_message}
         )
@@ -544,6 +459,12 @@ def process_user_message(conversation_id, user_id, message):
                 "html": error_html,
                 "message_id": error_message.id,
             },
+        )
+
+        # Turn off typing indicator
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{conversation_id}",
+            {"type": "typing_indicator", "is_typing": False},
         )
 
 
