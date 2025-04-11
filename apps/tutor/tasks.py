@@ -19,7 +19,7 @@ from .services import ClaudeService, YouTubeService
 logger = logging.getLogger(__name__)
 
 
-def handle_search_videos(tool_call, conversation, youtube_service):
+def handle_search_videos(tool_call, conversation, channel_layer, youtube_service):
     """Handle the search_youtube_videos tool call."""
     result = None
     try:
@@ -28,20 +28,48 @@ def handle_search_videos(tool_call, conversation, youtube_service):
         logger.info(f"YouTube search returned {len(result) if result else 0} results")
 
         if result:
+            # Store in conversation state
             conversation.state["search_results"] = result
             conversation.save(update_fields=["state"])
 
-            # Debug response format
-            for i, video in enumerate(result[:2]):  # Log first 2 videos as examples
-                logger.info(
-                    f"Video {i + 1}: {video.get('title', 'Unknown')} ({video.get('id', 'Unknown ID')})"
+            # Format a message with the results to show in the chat
+            message_text = (
+                "Here are some Toki Pona learning videos that might help:\n\n"
+            )
+            for i, video in enumerate(result[:5], 1):
+                message_text += (
+                    f"{i}. **{video.get('title')}** by {video.get('channel')}\n"
                 )
+                message_text += f"   Duration: {video.get('duration')} | [Watch on YouTube]({video.get('url')})\n\n"
+
+            message_text += "Let me know which video you'd like to explore further."
+
+            # Create and send a message with the search results
+            assistant_message = Message.objects.create(
+                conversation=conversation,
+                role="assistant",
+                content=message_text,
+            )
+
+            # Render and send the message
+            message_html = render_to_string(
+                "tutor/partials/message.html", {"message": assistant_message}
+            )
+
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{conversation.id}",
+                {
+                    "type": "chat_message",
+                    "html": message_html,
+                    "message_id": assistant_message.id,
+                },
+            )
         else:
             result = {
                 "error": "No videos found matching your query. Please try a different search."
             }
     except Exception as e:
-        logger.error(f"Error executing search_youtube_videos: {str(e)}")
+        logger.error(f"Error executing search_youtube_videos: {str(e)}", exc_info=True)
         result = {"error": f"Failed to search videos: {str(e)}"}
 
     return result
@@ -53,47 +81,58 @@ def handle_video_content(tool_call, conversation, channel_layer, youtube_service
     try:
         result = youtube_service.get_video_content(**tool_call["input"])
         if "error" not in result:
+            # Store in conversation state
             conversation.state["current_video_id"] = tool_call["input"]["video_id"]
             conversation.save(update_fields=["state"])
+
+            # Format a message about the video
+            video_url = (
+                f"https://www.youtube.com/watch?v={tool_call['input']['video_id']}"
+            )
+            message_text = f"**{result.get('title', '')}**\n\n"
+            message_text += f"By: {result.get('channel', '')}\n"
+            message_text += f"[Watch on YouTube]({video_url})\n\n"
+
+            # Add transcript excerpt if available
+            if result.get("transcript"):
+                excerpt = (
+                    result["transcript"][:500] + "..."
+                    if len(result["transcript"]) > 500
+                    else result["transcript"]
+                )
+                message_text += (
+                    f"Here's an excerpt from the transcript:\n\n{excerpt}\n\n"
+                )
+                message_text += "Would you like me to extract the key Toki Pona vocabulary from this video?"
+
+            # Create and send a message
+            assistant_message = Message.objects.create(
+                conversation=conversation,
+                role="assistant",
+                content=message_text,
+            )
+
+            # Render and send the message
+            message_html = render_to_string(
+                "tutor/partials/message.html", {"message": assistant_message}
+            )
+
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{conversation.id}",
+                {
+                    "type": "chat_message",
+                    "html": message_html,
+                    "message_id": assistant_message.id,
+                },
+            )
     except Exception as e:
-        logger.error(f"Error executing get_video_content: {str(e)}")
+        logger.error(f"Error executing get_video_content: {str(e)}", exc_info=True)
         return {"error": f"Failed to get video content: {str(e)}"}
-
-    # Only proceed with video panel if we have valid video data
-    if not isinstance(result, dict) or "error" in result:
-        return result
-
-    video_data = {
-        "video_id": tool_call["input"]["video_id"],
-        "title": result.get("title", ""),
-        "channel": result.get("channel", ""),
-        "duration": result.get("duration", ""),
-        "transcript": result.get("transcript", ""),
-    }
-
-    video_html = render_to_string(
-        "tutor/partials/video_panel.html",
-        {"video": video_data, "conversation": conversation},
-    )
-
-    async_to_sync(channel_layer.group_send)(
-        f"chat_{conversation.id}",
-        {
-            "type": "video_panel",
-            "html": video_html,
-            "video_id": tool_call["input"]["video_id"],
-        },
-    )
-
-    process_video_transcript.delay(
-        video_id=tool_call["input"]["video_id"],
-        conversation_id=conversation.id,
-    )
 
     return result
 
 
-def handle_extract_vocabulary(tool_call, conversation, claude_service):
+def handle_extract_vocabulary(tool_call, conversation, channel_layer, claude_service):
     """Handle the extract_vocabulary tool call."""
     result = None
     try:
@@ -111,32 +150,130 @@ def handle_extract_vocabulary(tool_call, conversation, claude_service):
         if transcript_text:
             result = claude_service.extract_vocabulary(transcript_text)
             if result:
+                # Store in conversation state
                 conversation.state["vocabulary"] = result
                 conversation.save(update_fields=["state"])
+
+                # Format a message with the vocabulary
+                message_text = "Here are the key Toki Pona words from this video:\n\n"
+                for word in result[:10]:  # Limit to 10 words for brevity
+                    message_text += (
+                        f"**{word.get('word')}**: {word.get('definition')}\n"
+                    )
+                    if "example" in word and word["example"]:
+                        message_text += f"Example: _{word['example']}_\n\n"
+                    else:
+                        message_text += "\n"
+
+                message_text += "Would you like to test your knowledge with a quiz based on this content?"
+
+                # Create and send a message
+                assistant_message = Message.objects.create(
+                    conversation=conversation,
+                    role="assistant",
+                    content=message_text,
+                )
+
+                # Render and send the message
+                message_html = render_to_string(
+                    "tutor/partials/message.html", {"message": assistant_message}
+                )
+
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{conversation.id}",
+                    {
+                        "type": "chat_message",
+                        "html": message_html,
+                        "message_id": assistant_message.id,
+                    },
+                )
             else:
                 result = {"error": "Could not extract vocabulary from transcript"}
         else:
             result = {"error": "No transcript text available to extract vocabulary"}
     except Exception as e:
-        logger.error(f"Error executing extract_vocabulary: {str(e)}")
+        logger.error(f"Error executing extract_vocabulary: {str(e)}", exc_info=True)
         result = {"error": f"Failed to extract vocabulary: {str(e)}"}
 
     return result
 
 
-def handle_generate_quiz(tool_call, conversation):
+def handle_generate_quiz(tool_call, conversation, channel_layer, claude_service):
     """Handle the generate_quiz tool call."""
     result = None
     try:
-        result = generate_quiz_task(
-            conversation_id=conversation.id, **tool_call["input"]
+        # Get transcript from video if needed
+        transcript = ""
+        video_title = ""
+
+        if conversation.state.get("current_video_id"):
+            video_id = conversation.state["current_video_id"]
+            try:
+                video = VideoResource.objects.get(youtube_id=video_id)
+                if hasattr(video, "transcript"):
+                    transcript = video.transcript.content
+                    video_title = video.title
+            except VideoResource.DoesNotExist:
+                # If not in database, try to fetch it
+                youtube_service = YouTubeService()
+                video_content = youtube_service.get_video_content(video_id)
+                transcript = video_content.get("transcript", "")
+                video_title = video_content.get("title", "")
+
+        # Create the quiz
+        quiz_data = claude_service.generate_quiz(
+            difficulty=tool_call["input"].get("difficulty", "beginner"),
+            question_count=int(tool_call["input"].get("question_count", 5)),
+            transcript=transcript,
+            video_title=video_title,
         )
-        if not result or "error" in result:
-            logger.error(
-                f"Quiz generation error: {result.get('error', 'Unknown error')}"
+
+        # Store in conversation state
+        if "error" not in quiz_data:
+            conversation.state["current_quiz"] = quiz_data
+            conversation.save(update_fields=["state"])
+
+            # Format a message with the quiz
+            message_text = f"I've created a **{quiz_data.get('difficulty', 'beginner')}** level quiz based on the Toki Pona content we've been discussing.\n\n"
+            message_text += f"**{quiz_data.get('title', 'Toki Pona Quiz')}**\n\n"
+
+            # Add first question as preview
+            if quiz_data.get("questions"):
+                question = quiz_data["questions"][0]
+                message_text += f"Question 1: {question['question']}\n\n"
+
+                for i, option in enumerate(question["options"]):
+                    message_text += f"{i + 1}. {option}\n"
+
+                message_text += "\nLet me know your answer, and we can go through this quiz together!"
+
+            # Create and send a message
+            assistant_message = Message.objects.create(
+                conversation=conversation,
+                role="assistant",
+                content=message_text,
             )
+
+            # Render and send the message
+            message_html = render_to_string(
+                "tutor/partials/message.html", {"message": assistant_message}
+            )
+
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{conversation.id}",
+                {
+                    "type": "chat_message",
+                    "html": message_html,
+                    "message_id": assistant_message.id,
+                },
+            )
+
+            result = quiz_data
+        else:
+            result = quiz_data  # Contains the error
+
     except Exception as e:
-        logger.error(f"Error executing generate_quiz: {str(e)}")
+        logger.error(f"Error executing generate_quiz: {str(e)}", exc_info=True)
         result = {"error": f"Failed to generate quiz: {str(e)}"}
 
     return result
@@ -153,15 +290,21 @@ def execute_tool_call(
     tool_name = tool_call["name"]
 
     if tool_name == "search_youtube_videos":
-        return handle_search_videos(tool_call, conversation, youtube_service)
+        return handle_search_videos(
+            tool_call, conversation, channel_layer, youtube_service
+        )
     elif tool_name == "get_video_content":
         return handle_video_content(
             tool_call, conversation, channel_layer, youtube_service
         )
     elif tool_name == "extract_vocabulary":
-        return handle_extract_vocabulary(tool_call, conversation, claude_service)
+        return handle_extract_vocabulary(
+            tool_call, conversation, channel_layer, claude_service
+        )
     elif tool_name == "generate_quiz":
-        return handle_generate_quiz(tool_call, conversation)
+        return handle_generate_quiz(
+            tool_call, conversation, channel_layer, claude_service
+        )
 
     # Return None for unhandled tool calls
     return None
@@ -182,9 +325,16 @@ def process_user_message(conversation_id, user_id, message):
 
         claude_service = ClaudeService()
         youtube_service = YouTubeService()
-        conversation_history = list(conversation.messages.order_by("created_at"))
+
+        # Get just the relevant conversation history - keeping it simple
+        conversation_history = list(
+            conversation.messages.order_by("created_at").filter(is_tool_call=False)
+        )
+
+        # Generate initial response
         response = claude_service.generate_response(conversation_history, message)
 
+        # Handle tool calls first if any
         if response.get("tool_calls"):
             # Show typing indicator during tool execution
             async_to_sync(channel_layer.group_send)(
@@ -193,14 +343,28 @@ def process_user_message(conversation_id, user_id, message):
             )
 
             for tool_call in response["tool_calls"]:
-                tool_message = Message.objects.create(
+                # Send a message that a tool is being called
+                tool_status_message = Message.objects.create(
                     conversation=conversation,
                     role="assistant",
-                    content="",
-                    is_tool_call=True,
-                    tool_name=tool_call["name"],
-                    tool_input=tool_call["input"],
+                    content=f"Searching for information on {tool_call['name'].replace('_', ' ')}...",
                 )
+
+                # Send the status message
+                status_html = render_to_string(
+                    "tutor/partials/message.html", {"message": tool_status_message}
+                )
+
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{conversation_id}",
+                    {
+                        "type": "chat_message",
+                        "html": status_html,
+                        "message_id": tool_status_message.id,
+                    },
+                )
+
+                # Notify about tool execution status
                 async_to_sync(channel_layer.group_send)(
                     f"chat_{conversation_id}",
                     {
@@ -209,6 +373,18 @@ def process_user_message(conversation_id, user_id, message):
                         "status": "started",
                     },
                 )
+
+                # Create tool call message in database
+                tool_message = Message.objects.create(
+                    conversation=conversation,
+                    role="assistant",
+                    content="",
+                    is_tool_call=True,
+                    tool_name=tool_call["name"],
+                    tool_input=tool_call["input"],
+                )
+
+                # Execute the tool
                 result = execute_tool_call(
                     tool_call,
                     conversation,
@@ -216,14 +392,48 @@ def process_user_message(conversation_id, user_id, message):
                     claude_service,
                     youtube_service,
                 )
+
+                # Save tool result
                 tool_message.tool_output = result
                 tool_message.save()
-                # Check if result contains an error
+
+                # Create tool result message
+                Message.objects.create(
+                    conversation=conversation,
+                    role="user",
+                    content="",
+                    is_tool_call=True,
+                    tool_name=tool_call["name"],
+                    tool_output=result,
+                )
+
+                # Handle result status
                 if isinstance(result, dict) and "error" in result:
                     error_message = (
                         f"Error using {tool_call['name']}: {result['error']}"
                     )
                     logger.warning(error_message)
+
+                    # Send error message to the chat
+                    error_msg = Message.objects.create(
+                        conversation=conversation,
+                        role="assistant",
+                        content=f"I encountered an error while searching: {result['error']}. Let's try a different approach.",
+                    )
+
+                    error_html = render_to_string(
+                        "tutor/partials/message.html", {"message": error_msg}
+                    )
+
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{conversation_id}",
+                        {
+                            "type": "chat_message",
+                            "html": error_html,
+                            "message_id": error_msg.id,
+                        },
+                    )
+
                     # Send error status
                     async_to_sync(channel_layer.group_send)(
                         f"chat_{conversation_id}",
@@ -246,40 +456,68 @@ def process_user_message(conversation_id, user_id, message):
                         },
                     )
 
-        final_response = response.get("response_text", "")
-        if not final_response and response.get("tool_calls"):
-            final_response = claude_service.generate_final_response(
-                conversation_history
-            )
+            # Create a final response if needed
+            final_response = response.get("response_text", "")
+            if not final_response:
+                logger.info(
+                    "No initial response text, skipping final response generation"
+                )
+            else:
+                # Make the response safe for HTML display
+                safe_response = mark_safe(final_response)
 
-        # Make the response safe for HTML display
-        safe_response = mark_safe(final_response)
+                # Create the assistant message
+                assistant_message = Message.objects.create(
+                    conversation=conversation, role="assistant", content=safe_response
+                )
 
-        assistant_message = Message.objects.create(
-            conversation=conversation, role="assistant", content=safe_response
-        )
+                # Render and send the message
+                message_html = render_to_string(
+                    "tutor/partials/message.html", {"message": assistant_message}
+                )
 
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{conversation_id}",
+                    {
+                        "type": "chat_message",
+                        "html": message_html,
+                        "message_id": assistant_message.id,
+                    },
+                )
+        else:
+            # If there are no tool calls, just send the response
+            if response.get("response_text"):
+                # Make the response safe for HTML display
+                safe_response = mark_safe(response.get("response_text", ""))
+
+                assistant_message = Message.objects.create(
+                    conversation=conversation, role="assistant", content=safe_response
+                )
+
+                # Render and send the message
+                message_html = render_to_string(
+                    "tutor/partials/message.html", {"message": assistant_message}
+                )
+
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{conversation_id}",
+                    {
+                        "type": "chat_message",
+                        "html": message_html,
+                        "message_id": assistant_message.id,
+                    },
+                )
+
+        # Turn off typing indicator
         async_to_sync(channel_layer.group_send)(
             f"chat_{conversation_id}", {"type": "typing_indicator", "is_typing": False}
         )
 
-        # Then send the assistant's message through the channel layer
-        message_html = render_to_string(
-            "tutor/partials/message.html", {"message": assistant_message}
-        )
-
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{conversation_id}",
-            {
-                "type": "chat_message",
-                "html": message_html,
-                "message_id": assistant_message.id,
-            },
-        )
+        # Update learning progress
         update_learning_progress.delay(user_id, conversation_id)
 
     except Exception as e:
-        logger.error(f"Error processing message: {str(e)}")
+        logger.error(f"Error processing message: {str(e)}", exc_info=True)
 
         error_text = f"Sorry, there was an error processing your request: {str(e)}"
         safe_error = mark_safe(error_text)
@@ -309,52 +547,6 @@ def process_user_message(conversation_id, user_id, message):
         )
 
 
-def process_transcript_segments(transcript):
-    """Helper function to process transcript into segments."""
-    segments = []
-    import re
-
-    if "WEBVTT" in transcript.content or " --> " in transcript.content:
-        lines = transcript.content.strip().split("\n")
-        i = 0
-        while i < len(lines):
-            if not lines[i] or lines[i] == "WEBVTT":
-                i += 1
-                continue
-
-            if " --> " in lines[i]:
-                timestamp = lines[i]
-                if i + 1 < len(lines):
-                    text = lines[i + 1]
-                    start_time = timestamp.split(" --> ")[0].strip()
-                    segments.append(
-                        {
-                            "timestamp": timestamp,
-                            "text": text,
-                            "start_time": start_time,
-                        }
-                    )
-                    i += 2
-                else:
-                    i += 1
-            else:
-                i += 1
-    else:
-        sentences = re.split(r"(?<=[.!?])\s+", transcript.content)
-        for i, sentence in enumerate(sentences):
-            if sentence.strip():
-                segments.append(
-                    {
-                        "timestamp": f"{i}",
-                        "text": sentence.strip(),
-                        "start_time": f"{i}",
-                    }
-                )
-
-    transcript.segments = segments
-    transcript.save(update_fields=["segments"])
-
-
 @shared_task
 def process_video_transcript(video_id, conversation_id=None):
     """Process video transcript in background."""
@@ -362,96 +554,19 @@ def process_video_transcript(video_id, conversation_id=None):
         video = VideoResource.objects.get(youtube_id=video_id)
         transcript = video.transcript
 
-        if not transcript.segments:
-            process_transcript_segments(transcript)
-
-        if not transcript.vocabulary:
-            claude_service = ClaudeService()
-            vocabulary = claude_service.extract_vocabulary(transcript.content)
-            transcript.vocabulary = vocabulary
-            transcript.save(update_fields=["vocabulary"])
-
         if conversation_id:
             conversation = Conversation.objects.get(id=conversation_id)
             if (
                 "current_video_id" in conversation.state
                 and conversation.state["current_video_id"] == video_id
             ):
-                conversation.state["transcript_segments"] = transcript.segments
-                conversation.state["vocabulary"] = transcript.vocabulary
+                conversation.state["transcript"] = transcript.content
                 conversation.save(update_fields=["state"])
 
         logger.info(f"Successfully processed transcript for video {video_id}")
 
     except Exception as e:
         logger.error(f"Error processing transcript: {str(e)}")
-        raise
-
-
-@shared_task
-def generate_quiz_task(
-    conversation_id, video_id=None, difficulty="beginner", question_count=5
-):
-    """Generate a quiz for a video."""
-    try:
-        conversation = Conversation.objects.get(id=conversation_id)
-
-        if not video_id and conversation.state.get("current_video_id"):
-            video_id = conversation.state["current_video_id"]
-
-        if not video_id:
-            return {"error": "No video selected for quiz generation"}
-
-        try:
-            video = VideoResource.objects.get(youtube_id=video_id)
-            transcript = (
-                video.transcript.content if hasattr(video, "transcript") else ""
-            )
-        except VideoResource.DoesNotExist:
-            youtube_service = YouTubeService()
-            video_content = youtube_service.get_video_content(video_id)
-            transcript = video_content.get("transcript", "")
-            video_title = video_content.get("title", "")
-        else:
-            video_title = video.title
-
-        if not transcript:
-            return {"error": "No transcript available for quiz generation"}
-
-        claude_service = ClaudeService()
-        quiz_data = claude_service.generate_quiz(
-            difficulty=difficulty,
-            question_count=int(question_count),
-            transcript=transcript,
-            video_title=video_title,
-        )
-
-        if "error" in quiz_data:
-            return quiz_data
-
-        conversation.state["current_quiz"] = quiz_data
-        conversation.save(update_fields=["state"])
-
-        quiz_html = render_to_string(
-            "tutor/partials/quiz.html",
-            {
-                "quiz": quiz_data,
-                "conversation": conversation,
-                "video": {"video_id": video_id},
-            },
-        )
-
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{conversation_id}",
-            {"type": "video_panel", "html": quiz_html, "video_id": video_id},
-        )
-
-        return quiz_data
-
-    except Exception as e:
-        logger.error(f"Error generating quiz: {str(e)}")
-        return {"error": f"Failed to generate quiz: {str(e)}"}
 
 
 @shared_task
@@ -496,3 +611,33 @@ def update_learning_progress(user_id, conversation_id):
 
     except Exception as e:
         logger.error(f"Error updating learning progress: {str(e)}")
+
+
+@shared_task
+def generate_quiz_task(
+    conversation_id, video_id=None, difficulty="beginner", question_count=5
+):
+    """Generate a quiz for a video."""
+    try:
+        # Get a simplified version that just calls handle_generate_quiz
+        conversation = Conversation.objects.get(id=conversation_id)
+        channel_layer = get_channel_layer()
+        claude_service = ClaudeService()
+
+        tool_call = {
+            "name": "generate_quiz",
+            "input": {
+                "video_id": video_id or conversation.state.get("current_video_id"),
+                "difficulty": difficulty,
+                "question_count": question_count,
+            },
+        }
+
+        result = handle_generate_quiz(
+            tool_call, conversation, channel_layer, claude_service
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Error generating quiz: {str(e)}")
+        return {"error": f"Failed to generate quiz: {str(e)}"}
