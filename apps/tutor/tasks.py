@@ -311,121 +311,44 @@ def execute_tool_call(
 
 @shared_task
 def process_user_message(conversation_id, user_id, message):
-    """Process a user message and generate AI response with potential tool calls."""
-    conversation = Conversation.objects.get(id=conversation_id)
-    channel_layer = get_channel_layer()
-
+    """Ultra-minimal task to process user messages."""
     try:
-        # Send typing indicator to show that the AI is thinking
+        # Get necessary objects
+        conversation = Conversation.objects.get(id=conversation_id)
+        channel_layer = get_channel_layer()
+
+        # Show typing indicator
         async_to_sync(channel_layer.group_send)(
             f"chat_{conversation_id}",
             {"type": "typing_indicator", "is_typing": True},
         )
 
-        # Initialize services
+        # Initialize Claude service
         claude_service = ClaudeService()
-        youtube_service = YouTubeService()
 
-        # Get response directly using just the message text
-        # Avoid using conversation history here to prevent duplication
-        response = claude_service.generate_response([], message)
+        # Get response directly from message text (no history)
+        response = claude_service.generate_response(message=message)
 
-        # Handle tool calls if any
-        if response.get("tool_calls"):
-            for tool_call in response["tool_calls"]:
-                tool_name = tool_call["name"]
-
-                # Send status message about tool use
-                status_message = Message.objects.create(
-                    conversation=conversation,
-                    role="assistant",
-                    content="I'm searching for information about Toki Pona...",
-                )
-
-                status_html = render_to_string(
-                    "tutor/partials/message.html", {"message": status_message}
-                )
-
-                async_to_sync(channel_layer.group_send)(
-                    f"chat_{conversation_id}",
-                    {
-                        "type": "chat_message",
-                        "html": status_html,
-                        "message_id": status_message.id,
-                    },
-                )
-
-                # Execute the appropriate tool
-                if tool_name == "search_youtube_videos":
-                    # Search for videos
-                    try:
-                        videos = youtube_service.search_videos(**tool_call["input"])
-
-                        if videos:
-                            # Format video results
-                            message_text = "Here are some Toki Pona learning videos that might help:\n\n"
-                            for i, video in enumerate(videos[:5], 1):
-                                message_text += f"{i}. **{video.get('title')}** by {video.get('channel')}\n"
-                                message_text += f"   Duration: {video.get('duration')} | [Watch on YouTube]({video.get('url')})\n\n"
-
-                            # Store in conversation state
-                            conversation.state["search_results"] = videos
-                            conversation.save(update_fields=["state"])
-                        else:
-                            message_text = "I couldn't find any relevant Toki Pona videos. Let's try a different approach."
-                    except Exception as e:
-                        message_text = (
-                            f"I encountered an error searching for videos: {str(e)}"
-                        )
-
-                    # Send message with results
-                    results_message = Message.objects.create(
-                        conversation=conversation,
-                        role="assistant",
-                        content=message_text,
-                    )
-
-                    results_html = render_to_string(
-                        "tutor/partials/message.html", {"message": results_message}
-                    )
-
-                    async_to_sync(channel_layer.group_send)(
-                        f"chat_{conversation_id}",
-                        {
-                            "type": "chat_message",
-                            "html": results_html,
-                            "message_id": results_message.id,
-                        },
-                    )
-
-                # Record tool usage
-                Message.objects.create(
-                    conversation=conversation,
-                    role="assistant",
-                    content="",
-                    is_tool_call=True,
-                    tool_name=tool_name,
-                    tool_input=tool_call["input"],
-                )
-
-        # Send final response if there's text content
+        # Create response message
         if response.get("response_text"):
-            final_message = Message.objects.create(
+            # Create message in database
+            assistant_message = Message.objects.create(
                 conversation=conversation,
                 role="assistant",
                 content=response["response_text"],
             )
 
-            final_html = render_to_string(
-                "tutor/partials/message.html", {"message": final_message}
+            # Render and send message
+            message_html = render_to_string(
+                "tutor/partials/message.html", {"message": assistant_message}
             )
 
             async_to_sync(channel_layer.group_send)(
                 f"chat_{conversation_id}",
                 {
                     "type": "chat_message",
-                    "html": final_html,
-                    "message_id": final_message.id,
+                    "html": message_html,
+                    "message_id": assistant_message.id,
                 },
             )
 
@@ -435,37 +358,44 @@ def process_user_message(conversation_id, user_id, message):
             {"type": "typing_indicator", "is_typing": False},
         )
 
-        # Update learning progress
-        update_learning_progress.delay(user_id, conversation_id)
-
     except Exception as e:
+        # Log error
         logger.error(f"Error processing message: {str(e)}", exc_info=True)
 
-        # Send error message
-        error_message = Message.objects.create(
-            conversation=conversation,
-            role="assistant",
-            content=f"Sorry, I encountered an error: {str(e)}",
-        )
+        try:
+            # Try to send error message
+            conversation = Conversation.objects.get(id=conversation_id)
+            channel_layer = get_channel_layer()
 
-        error_html = render_to_string(
-            "tutor/partials/message.html", {"message": error_message}
-        )
+            # Create error message
+            error_message = Message.objects.create(
+                conversation=conversation,
+                role="assistant",
+                content=f"Sorry, I encountered an error: {str(e)}",
+            )
 
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{conversation_id}",
-            {
-                "type": "chat_message",
-                "html": error_html,
-                "message_id": error_message.id,
-            },
-        )
+            # Render and send error message
+            error_html = render_to_string(
+                "tutor/partials/message.html", {"message": error_message}
+            )
 
-        # Turn off typing indicator
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{conversation_id}",
-            {"type": "typing_indicator", "is_typing": False},
-        )
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{conversation_id}",
+                {
+                    "type": "chat_message",
+                    "html": error_html,
+                    "message_id": error_message.id,
+                },
+            )
+
+            # Turn off typing indicator
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{conversation_id}",
+                {"type": "typing_indicator", "is_typing": False},
+            )
+        except Exception as inner_e:
+            # If even error handling fails, just log it
+            logger.error(f"Error sending error message: {str(inner_e)}", exc_info=True)
 
 
 @shared_task
