@@ -21,15 +21,15 @@ class ClaudeService:
 
         Important guidance:
         1. BE CONCISE - Don't provide lengthy introductions or explanations unless necessary
-        2. USE TOOLS NATURALLY - Call tools when they would genuinely enhance the learning experience
+        2. USE TOOLS NATURALLY - Call tools when appropriate for the learning experience
         3. INCORPORATE TOOL RESULTS SEAMLESSLY - When using tools, integrate the results naturally
         4. AVOID REPETITION - Don't repeat yourself or restate information unnecessarily
         5. FOCUS ON THE USER'S NEEDS - Tailor responses to their specific questions and learning goals
 
         Your role:
-        - Recommend appropriate YouTube videos for learning specific Toki Pona concepts
+        - Recommend appropriate YouTube videos for learning specific Toki Pona concepts using the search_youtube_videos tool
         - Explain grammar rules and vocabulary in clear, concise terms
-        - Create quizzes and practice exercises tailored to the user's level
+        - Create quizzes and practice exercises tailored to the user's level using the generate_quiz tool
         - Provide accurate, helpful feedback on user's translations
         - Make learning fun and engaging
 
@@ -40,6 +40,12 @@ class ClaudeService:
         - Highlight common mistakes and misconceptions
 
         Always follow the Toki Pona learning workflow, guiding the conversation naturally through topic selection, content exploration, practice, and assessment.
+
+        Important Guidance for Tool Usage:
+        1. When a user asks about Toki Pona concepts, grammar, or vocabulary, use the search_youtube_videos tool to find relevant educational videos.
+        2. When a user selects a video, use the get_video_content tool to retrieve and analyze the video content.
+        3. After retrieving video content, use the extract_vocabulary tool to identify and explain key Toki Pona words.
+        4. When a user wants to test their knowledge, use the generate_quiz tool to create appropriate questions.
         """
 
         # Define the tools we'll use
@@ -124,7 +130,7 @@ class ClaudeService:
 
     def _format_messages(
         self, conversation_history: List[Message]
-    ) -> List[Dict[str, str]]:
+    ) -> List[Dict[str, Any]]:
         """
         Format conversation history into the format expected by Claude API.
 
@@ -135,180 +141,81 @@ class ClaudeService:
             List of message dictionaries for Claude API
         """
         formatted_messages = []
-        tool_call_ids = {}  # Track tool call IDs for correct pairing
+        tool_use_counter = 0  # Counter for unique tool_use IDs
 
-        # Format each message in the conversation history
-        for i, message in enumerate(conversation_history):
-            # Skip messages with invalid roles (Claude only accepts 'user' and 'assistant')
+        # Process regular messages first
+        for message in conversation_history:
             if message.role not in ["user", "assistant"]:
-                logger.warning(f"Skipping message with invalid role: {message.role}")
-                continue
+                continue  # Skip system messages
 
-            # Handle regular text messages
             if not message.is_tool_call:
                 formatted_messages.append(
                     {"role": message.role, "content": message.content}
                 )
-            # Handle tool calls (sent as JSON in special format)
-            else:
-                if message.role == "assistant":
-                    # Tool call by assistant
-                    tool_id = f"tool_{message.id}"
-                    tool_call_ids[message.id] = tool_id
-                    formatted_messages.append(
+
+        # Now, collect and format tool calls and their results
+        i = 0
+        while i < len(conversation_history):
+            message = conversation_history[i]
+
+            # We only care about tool calls from the assistant
+            if message.is_tool_call and message.role == "assistant":
+                # Generate a unique tool_use_id
+                tool_use_id = f"tool_use_{tool_use_counter}"
+                tool_use_counter += 1
+
+                # Create the tool_use message
+                tool_use_message = {
+                    "role": "assistant",
+                    "content": [
                         {
-                            "role": "assistant",
+                            "type": "tool_use",
+                            "id": tool_use_id,
+                            "name": message.tool_name,
+                            "input": message.tool_input,
+                        }
+                    ],
+                }
+
+                # Look ahead for the corresponding tool result
+                found_result = False
+                for j in range(i + 1, len(conversation_history)):
+                    result_message = conversation_history[j]
+                    if (
+                        result_message.is_tool_call
+                        and result_message.role == "user"
+                        and result_message.tool_name == message.tool_name
+                    ):
+                        # Found the matching result
+                        tool_result_message = {
+                            "role": "user",
                             "content": [
                                 {
-                                    "type": "tool_use",
-                                    "id": tool_id,
-                                    "name": message.tool_name,
-                                    "input": message.tool_input,
+                                    "type": "tool_result",
+                                    "tool_use_id": tool_use_id,
+                                    "content": json.dumps(result_message.tool_output),
                                 }
                             ],
                         }
-                    )
-                elif message.role == "user" and message.tool_output:
-                    # Find the corresponding tool call message
-                    tool_call_message = None
-                    # Look for the tool call this result responds to
-                    for j in range(i - 1, -1, -1):
-                        prev_msg = conversation_history[j]
-                        if (
-                            prev_msg.is_tool_call
-                            and prev_msg.role == "assistant"
-                            and prev_msg.tool_name == message.tool_name
-                        ):
-                            tool_call_message = prev_msg
-                            break
 
-                    if tool_call_message:
-                        tool_use_id = tool_call_ids.get(
-                            tool_call_message.id, f"tool_{tool_call_message.id}"
-                        )
-                        formatted_messages.append(
-                            {
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "tool_result",
-                                        "tool_use_id": tool_use_id,
-                                        "content": (
-                                            json.dumps(message.tool_output)
-                                            if isinstance(
-                                                message.tool_output, (dict, list)
-                                            )
-                                            else str(message.tool_output)
-                                        ),
-                                    }
-                                ],
-                            }
-                        )
-                    else:
-                        # If we can't find the tool call, log a warning and skip this message
-                        logger.warning(
-                            f"Could not find matching tool call for result with ID {message.id}"
-                        )
-                        continue
+                        # Add both messages to formatted_messages
+                        formatted_messages.append(tool_use_message)
+                        formatted_messages.append(tool_result_message)
+                        found_result = True
+                        break
+
+                # If no result was found, we'll skip this tool call
+                if not found_result:
+                    logger.warning(
+                        f"No matching tool result found for tool call: {message.tool_name}"
+                    )
+
+            i += 1
 
         # Log the message count to help with debugging
         logger.info(f"Formatted {len(formatted_messages)} messages for Claude API")
+        logger.debug(f"Formatted messages: {formatted_messages}")
         return formatted_messages
-
-    def _collect_tool_ids(
-        self, formatted_messages: List[Dict[str, Any]]
-    ) -> tuple[dict, dict]:
-        """
-        Collect tool_use and tool_result IDs from messages.
-
-        Args:
-            formatted_messages: List of formatted message dictionaries
-
-        Returns:
-            A tuple of (tool_use_ids, tool_result_refs) dictionaries
-        """
-        tool_use_ids = {}  # Maps index to ID
-        tool_result_refs = {}  # Maps index to tool_use ID it refers to
-
-        for i, msg in enumerate(formatted_messages):
-            if msg["role"] == "assistant" and isinstance(msg.get("content"), list):
-                for content_item in msg["content"]:
-                    if content_item.get("type") == "tool_use":
-                        tool_use_ids[i] = content_item.get("id")
-
-            elif msg["role"] == "user" and isinstance(msg.get("content"), list):
-                for content_item in msg["content"]:
-                    if content_item.get("type") == "tool_result":
-                        tool_result_refs[i] = content_item.get("tool_use_id")
-
-        return tool_use_ids, tool_result_refs
-
-    def _identify_skip_indices(
-        self, tool_use_ids: dict, tool_result_refs: dict, total_messages: int
-    ) -> set:
-        """
-        Identify which message indices should be skipped.
-
-        Args:
-            tool_use_ids: Dictionary mapping message index to tool_use ID
-            tool_result_refs: Dictionary mapping message index to referenced tool_use ID
-            total_messages: Total number of messages
-
-        Returns:
-            Set of indices to skip
-        """
-        skip_indices = set()
-
-        # Check for tool_use messages without matching tool_result
-        for i, msg_id in tool_use_ids.items():
-            if msg_id not in tool_result_refs.values():
-                # This tool_use has no matching tool_result - skip it
-                logger.warning(
-                    f"Skipping tool_use at index {i} with ID {msg_id} - no matching tool_result"
-                )
-                skip_indices.add(i)
-            elif i == total_messages - 1:
-                # Tool call at the end with no chance for a result - skip it
-                logger.warning(
-                    f"Skipping final tool_use at index {i} with ID {msg_id} - no room for tool_result"
-                )
-                skip_indices.add(i)
-
-        return skip_indices
-
-    def _sanitize_formatted_messages(
-        self, formatted_messages: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """
-        Ensures that tool_use and tool_result messages are properly paired.
-        The Claude API requires that every tool_use message must be followed by a tool_result message.
-
-        Args:
-            formatted_messages: List of formatted message dictionaries
-
-        Returns:
-            A sanitized list of message dictionaries with proper tool_use/tool_result pairing
-        """
-        if not formatted_messages:
-            return []
-
-        # Collect tool IDs from messages
-        tool_use_ids, tool_result_refs = self._collect_tool_ids(formatted_messages)
-
-        # Identify indices to skip
-        skip_indices = self._identify_skip_indices(
-            tool_use_ids, tool_result_refs, len(formatted_messages)
-        )
-
-        # Build the sanitized list
-        sanitized_messages = [
-            msg for i, msg in enumerate(formatted_messages) if i not in skip_indices
-        ]
-
-        logger.info(
-            f"Sanitized messages from {len(formatted_messages)} to {len(sanitized_messages)}"
-        )
-        return sanitized_messages
 
     def generate_response(
         self, conversation_history: List[Message], new_message: Optional[str] = None
@@ -325,24 +232,24 @@ class ClaudeService:
         """
         try:
             # Create a copy of conversation history to avoid modifying the original
-            messages = conversation_history.copy()
+            messages = list(conversation_history)
 
             # If a new message is provided, add it to the history
             if new_message:
                 messages.append(Message(role="user", content=new_message))
 
-            # For simplicity, when there's a new message, only use the last few messages
-            # This helps avoid issues with unpaired tool calls from previous conversations
-            if new_message and len(messages) > 5:
-                # Keep only the most recent messages
-                messages = messages[-5:]
+            # For simplicity and to improve context, limit to the last 10 messages
+            if len(messages) > 10:
+                messages = messages[-10:]
                 logger.info(f"Trimmed conversation history to {len(messages)} messages")
 
-            # Format messages for Claude API - first try with all messages
+            # Format messages for Claude API
             formatted_messages = self._format_messages(messages)
 
-            # Ensure tool_use and tool_result are properly paired
-            formatted_messages = self._sanitize_formatted_messages(formatted_messages)
+            # Log the formatted messages for debugging
+            logger.debug(
+                f"Sending {len(formatted_messages)} formatted messages to Claude"
+            )
 
             # Call Claude API with tools
             response = self.client.messages.create(
@@ -363,11 +270,13 @@ class ClaudeService:
                     # Handle tool use
                     tool_call = {"name": content_item.name, "input": content_item.input}
                     result["tool_calls"].append(tool_call)
+                    # Log successful tool call
+                    logger.info(f"Claude called tool: {content_item.name}")
 
             return result
 
         except Exception as e:
-            logger.error(f"Error generating Claude response: {str(e)}")
+            logger.error(f"Error generating Claude response: {str(e)}", exc_info=True)
             return {
                 "response_text": f"I'm having trouble connecting to my knowledge base. Error: {str(e)}",
                 "tool_calls": [],
@@ -401,17 +310,23 @@ class ClaudeService:
             )
 
             # Extract text response
+            response_text = ""
             for content_item in response.content:
                 if content_item.type == "text":
-                    return content_item.text
+                    response_text = content_item.text
+                    break
 
-            return "I'm not sure how to respond to that."
+            if not response_text:
+                logger.warning("No text response received from Claude")
+                return "I'm not sure how to respond to that."
+
+            return response_text
 
         except Exception as e:
-            logger.error(f"Error generating final Claude response: {str(e)}")
-            return (
-                f"I'm having trouble connecting to my knowledge base. Error: {str(e)}"
+            logger.error(
+                f"Error generating final Claude response: {str(e)}", exc_info=True
             )
+            return f"I'm having trouble generating a complete response. Error: {str(e)}"
 
     def extract_vocabulary(self, transcript: str) -> List[Dict[str, str]]:
         """
@@ -523,7 +438,7 @@ class ClaudeService:
             3. "questions": Array of question objects, each with:
                - "question": The question text
                - "options": Array of possible answers (for multiple choice)
-               - "correct_answer": The correct answer
+               - "correct_answer": The correct answer (as an integer index of the options array)
                - "explanation": Brief explanation of the answer
 
             Use the transcript content to create relevant questions.
