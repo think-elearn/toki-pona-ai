@@ -16,6 +16,12 @@ SECRET_KEY=${SECRET_KEY:-dev-key-replace-in-production}
 DEBUG=${DEBUG:-True}
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
 YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-}
+USE_S3_STORAGE=${USE_S3_STORAGE:-false}
+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
+AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME:-}
+AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL:-}
 EOL
 
 # Check if API keys are missing
@@ -46,6 +52,22 @@ echo "Loading sample data..."
 python manage.py load_glyphs
 python manage.py load_sample_signs
 python manage.py load_sample_phrases
+
+# Handle sign language videos
+if [ "${DOWNLOAD_SIGN_VIDEOS}" = "true" ]; then
+  echo "Downloading sign language videos..."
+  if [ -n "${VIDEO_SOURCE_URL}" ]; then
+    # Download from specified URL if provided
+    python manage.py download_sign_videos --source url --url "${VIDEO_SOURCE_URL}"
+  else
+    # Otherwise try to download from S3 if configured
+    python manage.py download_sign_videos
+  fi
+fi
+
+# Process sign videos to extract landmarks
+echo "Processing sign videos..."
+python manage.py process_sign_videos --download
 
 # Start the development server
 echo "Starting development server..."

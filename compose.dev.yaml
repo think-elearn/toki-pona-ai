@@ -2,6 +2,7 @@ volumes:
   postgres_data:
   ml_models_data:
   media_data:
+  video_data:  # Named volume for sign language videos
 
 services:
   db:
@@ -31,6 +32,7 @@ services:
       # Use named volumes for media data to persist between container rebuilds
       - media_data:/app/media
       - ml_models_data:/app/media/ml_models
+      - video_data:/app/static/videos/lukapona/mp4
     ports:
       - "8000:8000"
     depends_on:
@@ -48,6 +50,16 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
       - REDIS_URL=redis://redis:6379/0
+      # Video management settings
+      - DOWNLOAD_SIGN_VIDEOS=${DOWNLOAD_SIGN_VIDEOS:-true}
+      - VIDEO_SOURCE_URL=${VIDEO_SOURCE_URL:-}
+      # Optional S3 settings for video download (will be used if provided)
+      - USE_S3_STORAGE=${USE_S3_STORAGE:-false}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
+      - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME:-}
+      - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL:-}
 
   redis:
     image: redis:6
@@ -61,6 +73,7 @@ services:
     command: python -m celery -A config worker --loglevel=info
     volumes:
       - .:/app
+      - video_data:/app/static/videos/lukapona/mp4
     depends_on:
       - redis
       - db
@@ -73,3 +86,10 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      # Video management settings
+      - USE_S3_STORAGE=${USE_S3_STORAGE:-false}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
+      - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME:-}
+      - AWS_S3_ENDPOINT_URL=${AWS_S3_ENDPOINT_URL:-}
