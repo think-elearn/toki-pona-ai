@@ -77,7 +77,7 @@ primary_region = 'yyz'
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory = "1gb"
+  memory = "4gb"
 
 [[statics]]
   guest_path = "/app/staticfiles"
