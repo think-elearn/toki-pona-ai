@@ -15,6 +15,7 @@ echo "DATABASE_URL is set (value hidden)"
 echo "REDIS_URL is ${REDIS_URL:+set (value hidden)}"
 echo "ANTHROPIC_API_KEY is ${ANTHROPIC_API_KEY:+set (value hidden)}"
 echo "YOUTUBE_API_KEY is ${YOUTUBE_API_KEY:+set (value hidden)}"
+echo "USE_S3_STORAGE is ${USE_S3_STORAGE:+set (value hidden)}"
 
 # Check if database connection check is disabled
 if [ "${DATABASE_CHECK_DISABLED}" = "true" ]; then
@@ -65,6 +66,10 @@ if [ "$FLY_PROCESS_GROUP" = "app" ]; then
   # Run migrations
   echo "Running migrations..."
   python manage.py migrate --noinput || echo "WARNING: Migration failed, but continuing startup anyway"
+
+  # Process sign videos if this is the app process
+  echo "Processing sign videos..."
+  python manage.py process_sign_videos --download || echo "WARNING: Sign video processing failed, but continuing startup anyway"
 elif [[ "$@" == *"--migrate"* ]]; then
   # If explicitly requested via --migrate flag
   echo "Running migrations as explicitly requested..."
