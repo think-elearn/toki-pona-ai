@@ -14,11 +14,13 @@ from .utils import (
     save_landmarks_to_model,
     scan_video_directory,
 )
+from .video_manager import VideoManager
 
 # Expose classes and functions
 __all__ = [
     "SignComparer",
     "SignVisualizer",
+    "VideoManager",
     "process_video_to_landmarks",
     "save_landmarks_to_model",
     "load_landmarks_from_model",
