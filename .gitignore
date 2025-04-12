@@ -1,35 +1,72 @@
-# Python-generated files
+# Python
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
 wheels/
-*.egg-info
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# MacOS
-.DS_Store
-
-# Virtual environments
-.venv
-
-# Environment variables
-.env
-
-# Database
+# Django
+*.log
+*.pot
+*.pyc
+local_settings.py
 db.sqlite3
+db.sqlite3-journal
+media
 
-# static files
+# Static files
+static/admin/
 staticfiles/
 
-# coverage
+# Virtual environment
+venv/
+ENV/
+env/
+.env
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+CLAUDE.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Project specific
+# Ignore large animated gif and mp4 video files to keep Git repo lean
+static/videos/lukapona/mp4/*.mp4
+static/videos/lukapona/gif/*.gif
+# But allow small demo videos for testing
+!static/videos/lukapona/mp4/demo_*.mp4
+!static/videos/lukapona/gif/demo_*.gif
+
+# Ignore ML model files (they should be downloaded at runtime)
+media/ml_models/*
+!media/ml_models/.gitkeep
+
+# Ignore temp files
+*.tmp
+tmp/
+
+# Coverage
 .coverage
-
-# media
-media/
-
-# IDE and code assistants config
-Claude.md
-
-# Test files
-test_media/
-test_ml_models/
