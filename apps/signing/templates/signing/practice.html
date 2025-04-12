@@ -74,6 +74,59 @@
         border-radius: 5px;
         margin-top: 20px;
     }
+    .countdown {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 6rem;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        z-index: 30;
+    }
+    .tracking-guide {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        z-index: 20;
+    }
+    .landmark-point {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background-color: rgba(0, 255, 0, 0.7);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+    }
+    .landmark-connection {
+        position: absolute;
+        background-color: rgba(0, 255, 0, 0.5);
+        transform-origin: 0% 0%;
+    }
+    .comparison-visualization {
+        width: 100%;
+        max-height: 300px;
+        overflow: hidden;
+        display: none;
+        margin-top: 20px;
+    }
+    .comparison-visualization img {
+        width: 100%;
+    }
+    #playbackVideo {
+        width: 100%;
+        max-height: 300px;
+        display: none;
+        margin-top: 20px;
+        background-color: #000;
+        border-radius: 8px;
+    }
 </style>
 {% endblock %}
 
@@ -105,7 +158,7 @@
                         <h5>Reference Sign</h5>
                         <div class="reference-video">
                             {% if sign.video %}
-                                <video id="referenceVideo" controls>
+                                <video id="referenceVideo" loop controls>
                                     <source src="{{ sign.video.url }}" type="video/mp4">
                                     Your browser does not support the video tag.
                                 </video>
@@ -126,9 +179,20 @@
                             <video id="webcamVideo" autoplay playsinline></video>
                             <canvas id="overlayCanvas"></canvas>
                             <div class="recording-indicator">Recording...</div>
+                            <div class="countdown" id="countdown">3</div>
+                            <div class="tracking-guide" id="trackingGuide">Position your hand in view</div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Playback of recorded attempt -->
+                <div id="playbackContainer" class="mb-4" style="display:none;">
+                    <h5>Your Recorded Attempt</h5>
+                    <video id="playbackVideo" controls></video>
+                </div>
+
+                <!-- Comparison visualization -->
+                <div id="comparisonContainer" class="comparison-visualization mb-4"></div>
 
                 <div class="controls text-center">
                     <button id="startWebcam" class="btn btn-primary">
@@ -136,6 +200,9 @@
                     </button>
                     <button id="captureSign" class="btn btn-danger" disabled>
                         <i class="bi bi-record-circle"></i> Record Sign
+                    </button>
+                    <button id="playReference" class="btn btn-info" disabled>
+                        <i class="bi bi-play-circle"></i> Play Reference
                     </button>
                 </div>
 
@@ -204,9 +271,10 @@
                 <h3 class="h6">Signing Tips:</h3>
                 <ul>
                     <li>Face the camera clearly</li>
-                    <li>Ensure good lighting</li>
                     <li>Keep your hands within the frame</li>
-                    <li>Watch the reference video carefully before attempting</li>
+                    <li>Watch the reference video a few times before attempting</li>
+                    <li>Focus on hand shape and movement</li>
+                    <li>Practice each component of the sign separately</li>
                 </ul>
             </div>
         </div>
@@ -224,12 +292,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const overlayCanvas = document.getElementById('overlayCanvas');
     const startWebcamBtn = document.getElementById('startWebcam');
     const captureSignBtn = document.getElementById('captureSign');
+    const playReferenceBtn = document.getElementById('playReference');
+    const referenceVideo = document.getElementById('referenceVideo');
     const videoContainer = document.querySelector('.webcam-container');
+    const countdown = document.getElementById('countdown');
+    const trackingGuide = document.getElementById('trackingGuide');
+    const playbackVideo = document.getElementById('playbackVideo');
+    const playbackContainer = document.getElementById('playbackContainer');
+    const comparisonContainer = document.getElementById('comparisonContainer');
 
     let stream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
     let isRecording = false;
     let recordingTimeoutId = null;
-    let handLandmarks = [];
+    let countdownIntervalId = null;
+    let trackingIntervalId = null;
+    let canvasCtx = null;
+    let recordedFrames = [];
+    let currentAttemptId = null;
+
+    // Configure canvas
+    function setupCanvas() {
+        canvasCtx = overlayCanvas.getContext('2d');
+        overlayCanvas.width = webcamVideo.videoWidth;
+        overlayCanvas.height = webcamVideo.videoHeight;
+    }
 
     // Start webcam
     startWebcamBtn.addEventListener('click', async function() {
@@ -242,16 +330,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Set canvas size to match video dimensions
             webcamVideo.onloadedmetadata = function() {
-                overlayCanvas.width = webcamVideo.videoWidth;
-                overlayCanvas.height = webcamVideo.videoHeight;
+                setupCanvas();
 
-                // Enable capture button
+                // Enable buttons
                 captureSignBtn.disabled = false;
+                if (referenceVideo) {
+                    playReferenceBtn.disabled = false;
+                }
                 startWebcamBtn.disabled = true;
                 startWebcamBtn.innerHTML = '<i class="bi bi-camera-video-fill"></i> Webcam Active';
 
-                // Initialize hand tracking (mock)
-                initHandTracking();
+                // Start hand tracking
+                startHandTracking();
             };
         } catch (error) {
             console.error('Error accessing webcam:', error);
@@ -264,82 +354,274 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Initialize hand tracking (mock for MVP)
-    function initHandTracking() {
-        // In a real implementation, we would initialize MediaPipe Hands here
-        console.log("Initializing hand tracking (mock)");
+    // Initialize hand tracking
+    function startHandTracking() {
+        if (!stream) return;
 
-        // For the MVP, we're just simulating hand tracking
-        // In a full implementation, this would use MediaPipe Hands
+        // Start periodic tracking for real-time feedback
+        trackingIntervalId = setInterval(trackHands, 100);
     }
+
+    // Track hands in the current frame
+    async function trackHands() {
+        if (!webcamVideo.videoWidth) return;
+
+        try {
+            // Capture current frame
+            canvasCtx.drawImage(webcamVideo, 0, 0, overlayCanvas.width, overlayCanvas.height);
+            const imageData = canvasCtx.getImageData(0, 0, overlayCanvas.width, overlayCanvas.height);
+            const frame = document.createElement('canvas');
+            frame.width = overlayCanvas.width;
+            frame.height = overlayCanvas.height;
+            const frameCtx = frame.getContext('2d');
+            frameCtx.putImageData(imageData, 0, 0);
+
+            // Convert to base64
+            const base64Frame = frame.toDataURL('image/jpeg', 0.7);
+
+            // Send to backend for hand tracking
+            const response = await fetch('{% url "signing:track_hands" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    frame: base64Frame
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Hand tracking error:', data.error);
+                trackingGuide.textContent = 'Position your hand in view';
+                return;
+            }
+
+            // Draw landmarks if hands were detected
+            clearCanvas();
+            if (data.landmarks && data.landmarks.length > 0) {
+                drawLandmarks(data.landmarks);
+                trackingGuide.textContent = 'Hand detected';
+            } else {
+                trackingGuide.textContent = 'Position your hand in view';
+            }
+        } catch (error) {
+            console.error('Error during hand tracking:', error);
+        }
+    }
+
+    // Clear the canvas
+    function clearCanvas() {
+        canvasCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
+
+    // Draw hand landmarks on the canvas
+    function drawLandmarks(landmarks) {
+        // Define connections between landmarks for hand
+        const connections = [
+            [0, 1], [1, 2], [2, 3], [3, 4],  // Thumb
+            [0, 5], [5, 6], [6, 7], [7, 8],  // Index finger
+            [0, 9], [9, 10], [10, 11], [11, 12],  // Middle finger
+            [0, 13], [13, 14], [14, 15], [15, 16],  // Ring finger
+            [0, 17], [17, 18], [18, 19], [19, 20],  // Pinky
+            [0, 5], [5, 9], [9, 13], [13, 17]  // Palm
+        ];
+
+        // Draw each landmark as a circle
+        landmarks[0].forEach((point, index) => {
+            const x = point[0] * overlayCanvas.width;
+            const y = point[1] * overlayCanvas.height;
+
+            canvasCtx.beginPath();
+            canvasCtx.arc(x, y, 5, 0, 2 * Math.PI);
+            canvasCtx.fillStyle = index === 0 ? 'rgba(255, 0, 0, 0.7)' : 'rgba(0, 255, 0, 0.7)';
+            canvasCtx.fill();
+        });
+
+        // Draw connections between landmarks
+        canvasCtx.lineWidth = 3;
+        canvasCtx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
+
+        connections.forEach(([start, end]) => {
+            if (landmarks[0][start] && landmarks[0][end]) {
+                const startX = landmarks[0][start][0] * overlayCanvas.width;
+                const startY = landmarks[0][start][1] * overlayCanvas.height;
+                const endX = landmarks[0][end][0] * overlayCanvas.width;
+                const endY = landmarks[0][end][1] * overlayCanvas.height;
+
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(startX, startY);
+                canvasCtx.lineTo(endX, endY);
+                canvasCtx.stroke();
+            }
+        });
+    }
+
+    // Start countdown for recording
+    function startCountdown() {
+        let count = 3;
+        countdown.textContent = count;
+        countdown.style.display = 'block';
+
+        countdownIntervalId = setInterval(() => {
+            count--;
+            if (count > 0) {
+                countdown.textContent = count;
+            } else {
+                countdown.style.display = 'none';
+                clearInterval(countdownIntervalId);
+                startRecording();
+            }
+        }, 1000);
+    }
+
+    // Play reference video
+    playReferenceBtn.addEventListener('click', function() {
+        if (referenceVideo) {
+            referenceVideo.currentTime = 0;
+            referenceVideo.play();
+        }
+    });
 
     // Capture sign
     captureSignBtn.addEventListener('click', function() {
         if (!isRecording) {
-            // Start recording
-            isRecording = true;
-            videoContainer.classList.add('recording');
-            captureSignBtn.textContent = 'Stop Recording';
-            captureSignBtn.classList.remove('btn-danger');
-            captureSignBtn.classList.add('btn-warning');
-
-            // Mock collection of hand landmarks
-            handLandmarks = [
-                // This would be actual landmark data in a real implementation
-                [0.1, 0.1, 0.1],
-                [0.2, 0.2, 0.1],
-                [0.3, 0.3, 0.1]
-            ];
-
-            // Automatically stop recording after 3 seconds
-            recordingTimeoutId = setTimeout(() => {
-                if (isRecording) {
-                    captureSignBtn.click(); // Stop recording
-                }
-            }, 3000);
-
-            document.getElementById('feedback').innerHTML = `
-                <div class="alert alert-info">
-                    <p>Recording your sign... Perform the sign for "${sign.name}" clearly.</p>
-                </div>
-            `;
+            // Start recording after countdown
+            captureSignBtn.disabled = true;
+            playReferenceBtn.disabled = true;
+            startCountdown();
         } else {
             // Stop recording
-            isRecording = false;
-            videoContainer.classList.remove('recording');
-            captureSignBtn.textContent = 'Record Sign';
-            captureSignBtn.classList.remove('btn-warning');
-            captureSignBtn.classList.add('btn-danger');
-
-            if (recordingTimeoutId) {
-                clearTimeout(recordingTimeoutId);
-                recordingTimeoutId = null;
-            }
-
-            // Submit for analysis
-            analyzeSign();
+            stopRecording();
         }
     });
 
+    // Start recording
+    function startRecording() {
+        if (!stream) return;
+
+        // Clear previous recording
+        recordedChunks = [];
+        recordedFrames = [];
+
+        // Set up MediaRecorder
+        const options = { mimeType: 'video/webm;codecs=vp9' };
+        mediaRecorder = new MediaRecorder(stream, options);
+
+        // Handle data available event
+        mediaRecorder.ondataavailable = function(e) {
+            if (e.data.size > 0) {
+                recordedChunks.push(e.data);
+            }
+        };
+
+        // Handle recording stop
+        mediaRecorder.onstop = function() {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+
+            // Show playback
+            playbackVideo.src = url;
+            playbackContainer.style.display = 'block';
+            playbackVideo.style.display = 'block';
+
+            // Analyze the sign
+            analyzeSign();
+        };
+
+        // Start recording
+        mediaRecorder.start();
+        isRecording = true;
+        videoContainer.classList.add('recording');
+        captureSignBtn.textContent = 'Stop Recording';
+        captureSignBtn.classList.remove('btn-danger');
+        captureSignBtn.classList.add('btn-warning');
+        captureSignBtn.disabled = false;
+
+        // Set up frame capture interval for analysis
+        const frameCapture = setInterval(() => {
+            if (!isRecording) {
+                clearInterval(frameCapture);
+                return;
+            }
+
+            // Capture current frame for analysis
+            const canvas = document.createElement('canvas');
+            canvas.width = webcamVideo.videoWidth;
+            canvas.height = webcamVideo.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(webcamVideo, 0, 0, canvas.width, canvas.height);
+
+            // Convert to base64 and store
+            const base64Frame = canvas.toDataURL('image/jpeg', 0.7);
+            recordedFrames.push(base64Frame);
+        }, 100); // Capture at 10fps for analysis
+
+        // Automatically stop recording after 3 seconds
+        recordingTimeoutId = setTimeout(() => {
+            if (isRecording) {
+                stopRecording();
+            }
+        }, 3000);
+
+        document.getElementById('feedback').innerHTML = `
+            <div class="alert alert-info">
+                <p>Recording your sign... Perform the sign for "${sign.name}" clearly.</p>
+            </div>
+        `;
+    }
+
+    // Stop recording
+    function stopRecording() {
+        if (!isRecording || !mediaRecorder) return;
+
+        // Stop MediaRecorder
+        mediaRecorder.stop();
+        isRecording = false;
+        videoContainer.classList.remove('recording');
+        captureSignBtn.textContent = 'Record Sign';
+        captureSignBtn.classList.remove('btn-warning');
+        captureSignBtn.classList.add('btn-danger');
+        captureSignBtn.disabled = false;
+        playReferenceBtn.disabled = false;
+
+        // Clear timeout
+        if (recordingTimeoutId) {
+            clearTimeout(recordingTimeoutId);
+            recordingTimeoutId = null;
+        }
+    }
+
     // Analyze sign
-    function analyzeSign() {
-        fetch('{% url "signing:analyze_sign" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                sign_id: {{ sign.id }},
-                landmarks: handLandmarks
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            const feedbackDiv = document.getElementById('feedback');
+    async function analyzeSign() {
+        try {
+            document.getElementById('feedback').innerHTML = `
+                <div class="alert alert-info">
+                    <p>Analyzing your sign... Please wait.</p>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            `;
+
+            const response = await fetch('{% url "signing:analyze_sign" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    sign_id: {{ sign.id }},
+                    frames: recordedFrames
+                })
+            });
+
+            const data = await response.json();
 
             if (data.error) {
-                feedbackDiv.innerHTML = `
+                document.getElementById('feedback').innerHTML = `
                     <div class="alert alert-danger">
                         <p>${data.error}</p>
                     </div>
@@ -347,11 +629,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            // Store current attempt ID for visualization
+            currentAttemptId = Date.now();
+
             // Create feedback UI
             let alertClass = data.is_successful ? 'success' : 'warning';
             let feedbackHTML = `
                 <div class="alert alert-${alertClass}">
-                    <h5>${data.is_successful ? 'Great job!' : 'Keep practicing!'}</h5>
+                    <h5>${data.rating}: ${data.similarity_score.toFixed(1)}%</h5>
                     <p>${data.feedback}</p>
                     <div class="mt-2">
                         <div class="progress">
@@ -361,14 +646,20 @@ document.addEventListener('DOMContentLoaded', function() {
                                 aria-valuenow="${data.similarity_score}"
                                 aria-valuemin="0"
                                 aria-valuemax="100">
-                                ${data.similarity_score}%
+                                ${data.similarity_score.toFixed(1)}%
                             </div>
                         </div>
                     </div>
             `;
 
             // Add areas for improvement if any
-            if (data.areas_for_improvement && data.areas_for_improvement.length > 0) {
+            if (typeof data.areas_for_improvement === 'string') {
+                feedbackHTML += `
+                    <div class="mt-3">
+                        <p class="mb-1">${data.areas_for_improvement}</p>
+                    </div>
+                `;
+            } else if (data.areas_for_improvement && data.areas_for_improvement.length > 0) {
                 feedbackHTML += `
                     <div class="mt-3">
                         <p class="mb-1"><strong>Areas for improvement:</strong></p>
@@ -379,8 +670,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
             }
 
+            feedbackHTML += `
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-primary" onclick="showComparison()">
+                        <i class="bi bi-bar-chart"></i> Show Comparison
+                    </button>
+                </div>
+            `;
+
             feedbackHTML += `</div>`;
-            feedbackDiv.innerHTML = feedbackHTML;
+            document.getElementById('feedback').innerHTML = feedbackHTML;
 
             // Update progress stats if they exist
             if (data.attempts !== undefined) {
@@ -393,16 +692,116 @@ document.addEventListener('DOMContentLoaded', function() {
                         '<span class="text-warning">↻</span>';
                 }
             }
-        })
-        .catch(error => {
+
+            // Load comparison visualization
+            loadComparisonVisualization();
+
+        } catch (error) {
             console.error('Error:', error);
             document.getElementById('feedback').innerHTML = `
                 <div class="alert alert-danger">
                     <p>An error occurred while analyzing your sign. Please try again.</p>
+                    <p>Error details: ${error.message}</p>
                 </div>
             `;
-        });
+        }
     }
+
+    // Load comparison visualization
+    async function loadComparisonVisualization() {
+        try {
+            const response = await fetch(`{% url "signing:comparison_visualization" sign.id %}?attempt_id=${currentAttemptId}`);
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Visualization error:', data.error);
+                return;
+            }
+
+            comparisonContainer.innerHTML = '';
+
+            // Create image elements for each frame
+            data.frames.forEach((base64Frame, index) => {
+                const img = document.createElement('img');
+                img.src = base64Frame;
+                img.alt = `Comparison Frame ${index + 1}`;
+                img.style.display = 'none';
+                img.dataset.index = index;
+                comparisonContainer.appendChild(img);
+            });
+
+            // Add controls
+            const controls = document.createElement('div');
+            controls.className = 'text-center my-2';
+            controls.innerHTML = `
+                <button class="btn btn-sm btn-outline-secondary me-2" id="prevFrame">
+                    <i class="bi bi-arrow-left"></i> Previous
+                </button>
+                <span id="frameCounter">Frame 1/${data.total_frames}</span>
+                <button class="btn btn-sm btn-outline-secondary ms-2" id="nextFrame">
+                    Next <i class="bi bi-arrow-right"></i>
+                </button>
+            `;
+            comparisonContainer.appendChild(controls);
+
+            // Show the first frame
+            const firstImg = comparisonContainer.querySelector('img[data-index="0"]');
+            if (firstImg) {
+                firstImg.style.display = 'block';
+            }
+
+            // Add event listeners for controls
+            document.getElementById('prevFrame').addEventListener('click', showPrevFrame);
+            document.getElementById('nextFrame').addEventListener('click', showNextFrame);
+
+            // Show the container
+            comparisonContainer.style.display = 'block';
+        } catch (error) {
+            console.error('Error loading comparison:', error);
+        }
+    }
+
+    // Show previous frame in comparison
+    function showPrevFrame() {
+        const currentImg = comparisonContainer.querySelector('img[style*="display: block"]');
+        if (currentImg) {
+            const currentIndex = parseInt(currentImg.dataset.index);
+            const prevIndex = Math.max(0, currentIndex - 1);
+
+            if (prevIndex !== currentIndex) {
+                currentImg.style.display = 'none';
+                const prevImg = comparisonContainer.querySelector(`img[data-index="${prevIndex}"]`);
+                if (prevImg) {
+                    prevImg.style.display = 'block';
+                    document.getElementById('frameCounter').textContent = `Frame ${prevIndex + 1}/${comparisonContainer.querySelectorAll('img').length}`;
+                }
+            }
+        }
+    }
+
+    // Show next frame in comparison
+    function showNextFrame() {
+        const currentImg = comparisonContainer.querySelector('img[style*="display: block"]');
+        if (currentImg) {
+            const currentIndex = parseInt(currentImg.dataset.index);
+            const totalFrames = comparisonContainer.querySelectorAll('img').length;
+            const nextIndex = Math.min(totalFrames - 1, currentIndex + 1);
+
+            if (nextIndex !== currentIndex) {
+                currentImg.style.display = 'none';
+                const nextImg = comparisonContainer.querySelector(`img[data-index="${nextIndex}"]`);
+                if (nextImg) {
+                    nextImg.style.display = 'block';
+                    document.getElementById('frameCounter').textContent = `Frame ${nextIndex + 1}/${totalFrames}`;
+                }
+            }
+        }
+    }
+
+    // Make showComparison function available globally
+    window.showComparison = function() {
+        comparisonContainer.scrollIntoView({ behavior: 'smooth' });
+    };
 
     // Clean up resources when leaving the page
     window.addEventListener('beforeunload', function() {
@@ -410,6 +809,18 @@ document.addEventListener('DOMContentLoaded', function() {
             stream.getTracks().forEach(track => {
                 track.stop();
             });
+        }
+
+        if (trackingIntervalId) {
+            clearInterval(trackingIntervalId);
+        }
+
+        if (countdownIntervalId) {
+            clearInterval(countdownIntervalId);
+        }
+
+        if (recordingTimeoutId) {
+            clearTimeout(recordingTimeoutId);
         }
     });
 });
