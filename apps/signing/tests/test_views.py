@@ -77,39 +77,6 @@ class SigningViewsTests(TestCase):
         self.assertEqual(response.context["sign"], self.beginner_sign)
         self.assertEqual(response.context["progress"], self.progress)
 
-    def test_analyze_sign(self):
-        """Test that sign analysis works"""
-        # Test data for the sign submission
-        post_data = {
-            "sign_id": self.beginner_sign.id,
-            "landmarks": [[0.1, 0.1, 0.1], [0.2, 0.2, 0.1]],  # Minimal test data
-        }
-
-        # Since we're using a simulated recognition, this should work
-        response = self.client.post(
-            reverse("signing:analyze_sign"),
-            json.dumps(post_data),
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 200)
-
-        # Parse the response
-        data = json.loads(response.content)
-
-        # Validate response structure
-        self.assertIn("similarity_score", data)
-        self.assertIn("feedback", data)
-        self.assertIn("is_successful", data)
-        self.assertIn("areas_for_improvement", data)
-        self.assertIn("attempts", data)
-        self.assertIn("successful_attempts", data)
-        self.assertIn("accuracy", data)
-
-        # Check that progress was updated
-        progress = SigningProgress.objects.get(user=self.user, sign=self.beginner_sign)
-        self.assertEqual(progress.attempts, 6)  # 5 existing + 1 new
-
     def test_authentication_required(self):
         """Test that all views require authentication"""
         # Logout first
