@@ -641,13 +641,13 @@ wheels = [
 
 [[package]]
 name = "django-allauth"
-version = "65.5.0"
+version = "65.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asgiref" },
     { name = "django" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/66/f8/b58f84c29bcbca3798939279a98e2423e6e53a38c29e3fed7700ff3d6984/django_allauth-65.5.0.tar.gz", hash = "sha256:1a564fd2f5413054559078c2b7146796b517c1e7a38c6312e9de7c9bb708325d", size = 1624216 }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/08/8557880768ba4d5966195ee5e57c69d8b9425c62ffb80293e2ad36dffb83/django_allauth-65.7.0.tar.gz", hash = "sha256:eb060692150f39e1529893c2de5f9b46e1dab51153ff6cca7ad72c7c125259ea", size = 1640126 }
 
 [[package]]
 name = "django-crispy-forms"
@@ -2062,38 +2062,38 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.49.0" },
-    { name = "boto3", specifier = ">=1.37.22" },
-    { name = "cairosvg", specifier = ">=2.7.1" },
-    { name = "celery", specifier = ">=5.4.0" },
-    { name = "channels", extras = ["daphne"], specifier = ">=4.2.2" },
-    { name = "channels-redis", specifier = ">=4.2.1" },
-    { name = "crispy-bootstrap5", specifier = ">=2024.10" },
-    { name = "django", specifier = ">=4.2.20" },
+    { name = "anthropic", specifier = "==0.49.0" },
+    { name = "boto3", specifier = "==1.37.23" },
+    { name = "cairosvg", specifier = "==2.7.1" },
+    { name = "celery", specifier = "==5.4.0" },
+    { name = "channels", extras = ["daphne"], specifier = "==4.2.2" },
+    { name = "channels-redis", specifier = "==4.2.1" },
+    { name = "crispy-bootstrap5", specifier = "==2024.10" },
+    { name = "django", specifier = "==4.2.20" },
     { name = "django-allauth", specifier = ">=65.5.0" },
-    { name = "django-crispy-forms", specifier = ">=2.3" },
-    { name = "django-environ", specifier = ">=0.12.0" },
-    { name = "django-htmx", specifier = ">=1.23.0" },
-    { name = "django-storages", extras = ["s3"], specifier = ">=1.14.5" },
-    { name = "django-widget-tweaks", specifier = ">=1.5.0" },
-    { name = "fastdtw", specifier = ">=0.3.4" },
-    { name = "google-api-python-client", specifier = ">=2.166.0" },
-    { name = "gunicorn", specifier = ">=23.0.0" },
-    { name = "imageio", specifier = ">=2.37.0" },
+    { name = "django-crispy-forms", specifier = "==2.3" },
+    { name = "django-environ", specifier = "==0.12.0" },
+    { name = "django-htmx", specifier = "==1.23.0" },
+    { name = "django-storages", extras = ["s3"], specifier = "==1.14.5" },
+    { name = "django-widget-tweaks", specifier = "==1.5.0" },
+    { name = "fastdtw", specifier = "==0.3.4" },
+    { name = "google-api-python-client", specifier = "==2.166.0" },
+    { name = "gunicorn", specifier = "==23.0.0" },
+    { name = "imageio", specifier = "==2.37.0" },
     { name = "mediapipe", specifier = "==0.10.18" },
-    { name = "numpy", specifier = ">=1.26.4" },
-    { name = "opencv-python", specifier = ">=4.11.0.86" },
-    { name = "pillow", specifier = ">=11.1.0" },
-    { name = "psycopg", specifier = ">=3.2.6" },
-    { name = "pydub", specifier = ">=0.25.1" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "pytube", specifier = ">=15.0.0" },
-    { name = "redis", extras = ["hiredis"], specifier = ">=5.2.1" },
-    { name = "requests", specifier = ">=2.32.3" },
-    { name = "sentry-sdk", extras = ["django"], specifier = ">=2.24.1" },
-    { name = "speechrecognition", specifier = ">=3.14.2" },
-    { name = "whitenoise", specifier = ">=6.9.0" },
-    { name = "youtube-transcript-api", specifier = ">=1.0.3" },
+    { name = "numpy", specifier = "==1.26.4" },
+    { name = "opencv-python", specifier = "==4.11.0.86" },
+    { name = "pillow", specifier = "==11.1.0" },
+    { name = "psycopg", specifier = "==3.2.6" },
+    { name = "pydub", specifier = "==0.25.1" },
+    { name = "python-dotenv", specifier = "==1.0.1" },
+    { name = "pytube", specifier = "==15.0.0" },
+    { name = "redis", extras = ["hiredis"], specifier = "==5.2.1" },
+    { name = "requests", specifier = "==2.32.3" },
+    { name = "sentry-sdk", extras = ["django"], specifier = "==2.24.1" },
+    { name = "speechrecognition", specifier = "==3.14.2" },
+    { name = "whitenoise", specifier = "==6.9.0" },
+    { name = "youtube-transcript-api", specifier = "==1.0.3" },
 ]
 
 [package.metadata.requires-dev]
