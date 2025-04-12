@@ -45,19 +45,19 @@ Since video files are large and shouldn't be committed to Git, we use a flexible
 2. Run migrations:
 
    ```bash
-   docker compose -f compose.dev.yaml exec web python manage.py migrate
+   python manage.py migrate
    ```
 
 3. Download sign videos for development:
 
    ```bash
-   docker compose -f compose.dev.yaml exec web python manage.py download_sign_videos
+   python manage.py download_sign_videos
    ```
 
 4. Process videos to extract landmarks:
 
    ```bash
-   docker compose -f compose.dev.yaml exec web python manage.py process_sign_videos
+   python manage.py process_sign_videos
    ```
 
 ### Video Management Commands
@@ -66,32 +66,32 @@ Since video files are large and shouldn't be committed to Git, we use a flexible
 
 ```bash
 # Download all sign videos from S3
-docker compose -f compose.dev.yaml exec web python manage.py download_sign_videos
+python manage.py download_sign_videos
 
 # Force redownload, overwriting existing files
-docker compose -f compose.dev.yaml exec web python manage.py download_sign_videos --force
+python manage.py download_sign_videos --force
 
 # Download a specific sign
-docker compose -f compose.dev.yaml exec web python manage.py download_sign_videos --sign toki
+python manage.py download_sign_videos --sign toki
 
 # Download from a custom URL source
-docker compose -f compose.dev.yaml exec web python manage.py download_sign_videos --source url --url https://your-video-host.com/signs/
+python manage.py download_sign_videos --source url --url https://your-video-host.com/signs/
 ```
 
 #### Process Videos
 
 ```bash
 # Process all available videos to extract landmarks
-docker compose -f compose.dev.yaml exec web python manage.py process_sign_videos
+python manage.py process_sign_videos
 
 # Process even if landmarks already exist
-docker compose -f compose.dev.yaml exec web python manage.py process_sign_videos --force
+python manage.py process_sign_videos --force
 
 # Download missing videos from S3 then process
-docker compose -f compose.dev.yaml exec web python manage.py process_sign_videos --download
+python manage.py process_sign_videos --download
 
 # Process a specific sign
-docker compose -f compose.dev.yaml exec web python manage.py process_sign_videos --sign toki
+python manage.py process_sign_videos --sign toki
 ```
 
 ## Using Custom Video Sources
@@ -102,7 +102,7 @@ If you don't have S3 access, you can use any web server to host your sign videos
 2. Use the download command with the URL source option:
 
    ```bash
-   docker compose -f compose.dev.yaml exec web python manage.py download_sign_videos --source url --url https://your-server.com/videos/
+   python manage.py download_sign_videos --source url --url https://your-server.com/videos/
    ```
 
 This will download the videos from your server to your local development environment.
