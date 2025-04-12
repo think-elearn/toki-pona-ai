@@ -47,6 +47,9 @@ STORAGES = {
     "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
 }
 
+# Video storage settings for production
+USE_S3_STORAGE = True
+
 # ML models configuration for production (S3 storage)
 ML_MODELS_STORAGE.update(
     {

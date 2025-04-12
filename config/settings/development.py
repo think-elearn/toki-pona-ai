@@ -55,6 +55,9 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Video storage settings for development
+USE_S3_STORAGE = False
+
 # Update ML models configuration for development (local storage)
 ML_MODELS_STORAGE.update(
     {
